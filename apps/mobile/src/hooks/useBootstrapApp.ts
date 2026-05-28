@@ -13,10 +13,15 @@ export function useBootstrapApp() {
     async function bootstrap() {
       try {
         await storageService.bootstrap();
-        await orderSyncService.syncOrders();
         if (isMounted) {
           setIsReady(true);
         }
+
+        void orderSyncService.syncOrders().catch((nextError) => {
+          if (isMounted) {
+            setError(nextError as Error);
+          }
+        });
       } catch (nextError) {
         if (isMounted) {
           setError(nextError as Error);

@@ -1,7 +1,8 @@
 import { useLocalSearchParams } from "expo-router";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { AppNav } from "../../src/components/AppNav";
+import { ScrollView } from "../../src/components/SafeNative";
 import type { FulfillmentId } from "../../src/domain";
 import { useAppTheme } from "../../src/providers/AppearanceProvider";
 import { useFulfillmentRun } from "../../src/hooks/useFulfillmentRun";
@@ -57,14 +58,14 @@ function createStyles(theme: AppTheme) {
 const { colors, radius, spacing } = theme;
 return StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundWash,
     flexGrow: 1,
     gap: spacing.lg,
     padding: spacing.xl
   },
   loading: {
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundWash,
     flex: 1,
     gap: spacing.md,
     justifyContent: "center"

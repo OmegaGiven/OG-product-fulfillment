@@ -43,6 +43,14 @@ export async function listRecords(namespace: string) {
   return results.map((row) => row.payload);
 }
 
+export async function listNamespaceRecords(namespace: string) {
+  const db = await getDb();
+  return db.getAllAsync<{ id: string; payload: string }>(
+    `SELECT id, payload FROM app_records WHERE namespace = ? ORDER BY updated_at DESC;`,
+    [namespace]
+  );
+}
+
 export async function deleteRecords(namespace: string) {
   const db = await getDb();
   await db.runAsync(`DELETE FROM app_records WHERE namespace = ?;`, [namespace]);

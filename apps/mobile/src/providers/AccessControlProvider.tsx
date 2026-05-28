@@ -27,6 +27,7 @@ type AccessControlContextValue = {
   toggleNavVisibility: (page: NavKey) => Promise<void>;
   addPosition: () => Promise<void>;
   removePosition: (positionId: string) => Promise<void>;
+  reloadAccessControlState: () => Promise<void>;
 };
 
 const ACCESS_CONTROL_KEY = "access-control";
@@ -35,17 +36,18 @@ const AccessControlContext = createContext<AccessControlContextValue | null>(nul
 export function AccessControlProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<AccessControlState>(defaultAccessControlState);
 
+  async function loadState() {
+    const stored = await getSecureJson<AccessControlState>(ACCESS_CONTROL_KEY);
+    setState(normalizeAccessControlState(stored));
+  }
+
   useEffect(() => {
     let isMounted = true;
-
-    async function loadState() {
-      const stored = await getSecureJson<AccessControlState>(ACCESS_CONTROL_KEY);
+    void getSecureJson<AccessControlState>(ACCESS_CONTROL_KEY).then((stored) => {
       if (isMounted) {
         setState(normalizeAccessControlState(stored));
       }
-    }
-
-    void loadState();
+    });
 
     return () => {
       isMounted = false;
@@ -171,7 +173,8 @@ export function AccessControlProvider({ children }: PropsWithChildren) {
               ? nextPositions[0]?.id ?? null
               : state.activePositionId
         });
-      }
+      },
+      reloadAccessControlState: loadState
     };
   }, [state]);
 

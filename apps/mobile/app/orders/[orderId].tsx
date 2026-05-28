@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { AppNav } from "../../src/components/AppNav";
 import { Pressable } from "../../src/components/InteractivePressable";
+import { ScrollView } from "../../src/components/SafeNative";
 import { useOrders } from "../../src/hooks/useOrders";
 import { useAppTheme } from "../../src/providers/AppearanceProvider";
 import type { AppTheme } from "../../src/theme";
@@ -103,14 +104,14 @@ function createStyles(theme: AppTheme) {
 
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl
     },
     centered: {
       alignItems: "center",
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flex: 1,
       justifyContent: "center",
       padding: spacing.xl

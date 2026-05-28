@@ -90,6 +90,19 @@ export interface StorageService {
   deleteMessageTemplate(templateId: RecordId): Promise<void>;
 }
 
+export type BackupSummary = {
+  bundleName: string;
+  exportedAt: string;
+  namespaceCounts: Record<string, number>;
+  photoCount: number;
+  secureKeyCount: number;
+};
+
+export interface BackupService {
+  exportData(): Promise<BackupSummary>;
+  importData(): Promise<BackupSummary>;
+}
+
 export interface WorkflowService {
   getDefaultWorkflow(): Promise<WorkflowTemplate>;
   listWorkflowTemplates(): Promise<WorkflowTemplate[]>;
@@ -131,6 +144,7 @@ export interface IntegrationAuthService {
 }
 
 export interface AppServices {
+  backupService: BackupService;
   storageService: StorageService;
   workflowService: WorkflowService;
   orderSyncService: OrderSyncService;

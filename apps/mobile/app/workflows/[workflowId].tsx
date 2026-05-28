@@ -1,9 +1,10 @@
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import type { StepType, WorkflowStep, WorkflowTemplate } from "../../src/domain";
 import { Pressable } from "../../src/components/InteractivePressable";
+import { ScrollView, TextInput } from "../../src/components/SafeNative";
 import { useBootstrapApp } from "../../src/hooks/useBootstrapApp";
 import { useMessageTemplates } from "../../src/hooks/useMessageTemplates";
 import { useWorkflowTemplates } from "../../src/hooks/useWorkflowTemplates";
@@ -662,14 +663,14 @@ function createStyles(theme: AppTheme) {
 
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl
     },
     centered: {
       alignItems: "center",
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flex: 1,
       gap: spacing.sm,
       justifyContent: "center",

@@ -43,6 +43,24 @@ export const NAV_KEYS: NavKey[] = [
   "user"
 ];
 
+function normalizeBoolean(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") {
+      return true;
+    }
+    if (normalized === "false") {
+      return false;
+    }
+  }
+
+  return fallback;
+}
+
 function buildPageAccess(level: PageAccessLevel) {
   return NAV_KEYS.reduce<Record<NavKey, PageAccessLevel>>((accumulator, key) => {
     accumulator[key] = level;
@@ -86,7 +104,10 @@ export function normalizeAccessControlState(
   state: Partial<AccessControlState> | null | undefined
 ): AccessControlState {
   const personalNavVisibility = NAV_KEYS.reduce<Record<NavKey, boolean>>((accumulator, key) => {
-    accumulator[key] = key === "user" ? true : (state?.personalNavVisibility?.[key] ?? true);
+    accumulator[key] =
+      key === "user"
+        ? true
+        : normalizeBoolean(state?.personalNavVisibility?.[key], true);
     return accumulator;
   }, {} as Record<NavKey, boolean>);
 
@@ -108,7 +129,7 @@ export function normalizeAccessControlState(
       : positions[0]?.id ?? null;
 
   return {
-    isOrgAdmin: state?.isOrgAdmin ?? defaultAccessControlState.isOrgAdmin,
+    isOrgAdmin: normalizeBoolean(state?.isOrgAdmin, defaultAccessControlState.isOrgAdmin),
     activePositionId,
     personalNavVisibility,
     positions

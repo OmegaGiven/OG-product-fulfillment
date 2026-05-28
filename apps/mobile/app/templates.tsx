@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Modal, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import type { MessageTemplate } from "../src/domain";
 import { Pressable } from "../src/components/InteractivePressable";
+import { Modal, ScrollView, TextInput } from "../src/components/SafeNative";
 import { useBootstrapApp } from "../src/hooks/useBootstrapApp";
 import { useMessageTemplates } from "../src/hooks/useMessageTemplates";
 import { AppNav } from "../src/components/AppNav";
@@ -263,14 +264,14 @@ function createStyles(theme: AppTheme) {
 
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl
     },
     centered: {
       alignItems: "center",
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flex: 1,
       justifyContent: "center",
       padding: spacing.xl

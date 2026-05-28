@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Stack } from "expo-router";
+import { Slot } from "expo-router";
 import { Platform } from "react-native";
 
 import { AppProviders } from "../src/providers/AppProviders";
@@ -32,7 +32,7 @@ export default function RootLayout() {
 
   return (
     <AppProviders>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Slot />
     </AppProviders>
   );
 }

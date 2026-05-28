@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { NAV_PAGE_LABELS, type NavKey } from "../accessControl/accessControl";
 import { Pressable } from "./InteractivePressable";
@@ -28,29 +29,116 @@ const NAV_ITEMS: {
 
 export function AppNav({ title, active = null }: Props) {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const { theme } = useAppTheme();
   const { canAccessPage } = useAccessControl();
   const styles = createStyles(theme);
+  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const visibleItems = NAV_ITEMS.filter((item) => canAccessPage(item.key, "read") || item.key === active);
+  const isWeb = Platform.OS === "web";
+  const inlineCount = isWeb
+    ? width >= 760
+      ? visibleItems.length
+      : width >= 660
+        ? 6
+        : width >= 560
+          ? 5
+          : 4
+    : width >= 720
+      ? 5
+      : width >= 520
+        ? 4
+        : 3;
+
+  const { primaryItems, overflowItems } = useMemo(() => {
+    if (visibleItems.length <= inlineCount) {
+      return {
+        primaryItems: visibleItems,
+        overflowItems: [] as typeof visibleItems
+      };
+    }
+
+    const nextPrimaryItems = visibleItems.slice(0, inlineCount);
+    const primaryKeys = new Set(nextPrimaryItems.map((item) => item.key));
+    return {
+      primaryItems: nextPrimaryItems,
+      overflowItems: visibleItems.filter((item) => !primaryKeys.has(item.key))
+    };
+  }, [inlineCount, visibleItems]);
+
+  function handleNavigate(href: (typeof NAV_ITEMS)[number]["href"]) {
+    setIsOverflowOpen(false);
+    router.push(href);
+  }
 
   return (
-    <View style={styles.topRow}>
-      <Text style={styles.title}>{title}</Text>
-      <View style={styles.actionsRow}>
-        {visibleItems.map((item) => {
-          const isActive = item.key === active;
-          return (
-            <Pressable
-              key={item.key}
-              onPress={() => router.push(item.href)}
-              style={[styles.navButton, isActive ? styles.navButtonActive : null]}
-            >
-              <Text style={[styles.navButtonText, isActive ? styles.navButtonTextActive : null]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+    <View style={[styles.topRow, styles.topRowCompact]}>
+      <View style={[styles.actionsRow, width < 900 ? styles.actionsRowCompact : null]}>
+        <View style={[styles.primaryNavRow, overflowItems.length === 0 ? styles.primaryNavRowExpanded : null]}>
+          <View style={styles.primaryItemsRow}>
+            {primaryItems.map((item) => {
+              const isActive = item.key === active;
+              return (
+                <Pressable
+                  key={item.key}
+                  onPress={() => handleNavigate(item.href)}
+                  style={[styles.navButton, isActive ? styles.navButtonActive : null]}
+                >
+                  <Text style={[styles.navButtonText, isActive ? styles.navButtonTextActive : null]}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {overflowItems.length > 0 ? (
+            <View style={styles.overflowWrap}>
+              <Pressable
+                onPress={() => setIsOverflowOpen((current) => !current)}
+                style={[styles.moreButton, isOverflowOpen ? styles.moreButtonActive : null]}
+                accessibilityLabel="Open navigation menu"
+              >
+                <View style={styles.moreIcon}>
+                  <View style={styles.moreIconBar} />
+                  <View style={styles.moreIconBar} />
+                  <View style={styles.moreIconBar} />
+                </View>
+              </Pressable>
+              {isOverflowOpen ? (
+                <View
+                  style={[
+                    styles.overflowMenu,
+                    width < 900
+                      ? {
+                          maxWidth: Math.max(190, Math.min(width - 32, 280))
+                        }
+                      : null
+                  ]}
+                >
+                  {overflowItems.map((item) => {
+                    const isActive = item.key === active;
+                    return (
+                      <Pressable
+                        key={item.key}
+                        onPress={() => handleNavigate(item.href)}
+                        style={[styles.overflowItem, isActive ? styles.overflowItemActive : null]}
+                      >
+                        <Text
+                          style={[
+                            styles.overflowItemText,
+                            isActive ? styles.overflowItemTextActive : null
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -60,40 +148,125 @@ function createStyles(theme: AppTheme) {
   const { colors, radius, spacing } = theme;
   return StyleSheet.create({
     topRow: {
-      alignItems: "center",
-      flexDirection: "row",
-      justifyContent: "space-between"
+      alignItems: "stretch",
+      flexDirection: "column",
+      position: "relative",
+      zIndex: 200
     },
-    title: {
-      color: colors.text,
-      flex: 1,
-      fontSize: 18,
-      fontWeight: "700"
+    topRowCompact: {
+      alignItems: "stretch",
+      flexDirection: "column"
     },
     actionsRow: {
+      alignItems: "center",
       flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.sm,
-      justifyContent: "flex-end"
+      justifyContent: "flex-start",
+      position: "relative",
+      width: "100%",
+      zIndex: 210
+    },
+    actionsRowCompact: {
+      justifyContent: "flex-start"
+    },
+    primaryNavRow: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceRaised,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      flexDirection: "row",
+      flexShrink: 1,
+      gap: spacing.xs,
+      padding: spacing.xs,
+      position: "relative",
+      width: "100%",
+      zIndex: 220
+    },
+    primaryNavRowExpanded: {
+      justifyContent: "space-between"
+    },
+    primaryItemsRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      flexShrink: 1,
+      gap: spacing.xs,
+      minWidth: 0
     },
     navButton: {
-      backgroundColor: colors.surfaceRaised,
-      borderColor: colors.borderStrong,
+      backgroundColor: "transparent",
       borderRadius: radius.pill,
-      borderWidth: 1,
+      minHeight: 36,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm
     },
     navButtonActive: {
-      backgroundColor: colors.accentSoft,
-      borderColor: colors.accent
+      backgroundColor: colors.accentSoft
     },
     navButtonText: {
-      color: colors.text,
+      color: colors.muted,
       fontSize: 14,
       fontWeight: "700"
     },
     navButtonTextActive: {
+      color: colors.text
+    },
+    overflowWrap: {
+      position: "relative",
+      zIndex: 230
+    },
+    moreButton: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      justifyContent: "center",
+      minHeight: 36,
+      minWidth: 36,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm
+    },
+    moreButtonActive: {
+      backgroundColor: colors.surfaceRaised
+    },
+    moreIcon: {
+      gap: 3
+    },
+    moreIconBar: {
+      backgroundColor: colors.text,
+      borderRadius: 999,
+      height: 2,
+      width: 14
+    },
+    overflowMenu: {
+      backgroundColor: colors.surfaceRaised,
+      borderColor: colors.borderStrong,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      elevation: 12,
+      gap: spacing.xs,
+      minWidth: 190,
+      maxWidth: 280,
+      padding: spacing.sm,
+      position: "absolute",
+      right: 0,
+      top: 44,
+      zIndex: 240
+    },
+    overflowItem: {
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm
+    },
+    overflowItemActive: {
+      backgroundColor: colors.accentSoft
+    },
+    overflowItemText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "700"
+    },
+    overflowItemTextActive: {
       color: colors.text
     }
   });

@@ -1,8 +1,9 @@
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
-import { Image, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import { Pressable } from "../components/InteractivePressable";
+import { TextInput } from "../components/SafeNative";
 import type {
   FulfillmentPhoto,
   FulfillmentRun,

@@ -1,10 +1,32 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-const SECURE_PREFIX = "product-fulfillment:secure:";
+const SECURE_PREFIX = "product-fulfillment-secure-";
+const MAX_KEY_LENGTH = 64;
+
+function hashKey(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function normalizeSecureKey(key: string) {
+  const normalized = key
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  const safeKey = normalized.length > 0 ? normalized : "key";
+  const hashed = `${safeKey.slice(0, 32)}-${hashKey(key)}`;
+  return `${SECURE_PREFIX}${hashed}`.slice(0, MAX_KEY_LENGTH);
+}
 
 function getWebKey(key: string) {
-  return `${SECURE_PREFIX}${key}`;
+  return normalizeSecureKey(key);
 }
 
 export async function isSecureStoreBacked() {
@@ -37,35 +59,41 @@ export async function setSecureJson(key: string, value: unknown) {
 }
 
 export async function deleteSecureItem(key: string) {
+  const storageKey = normalizeSecureKey(key);
+
   if (await isSecureStoreBacked()) {
-    await SecureStore.deleteItemAsync(key);
+    await SecureStore.deleteItemAsync(storageKey);
     return;
   }
 
   if (typeof window !== "undefined") {
-    window.localStorage.removeItem(getWebKey(key));
+    window.localStorage.removeItem(storageKey);
   }
 }
 
 async function getSecureItem(key: string) {
+  const storageKey = normalizeSecureKey(key);
+
   if (await isSecureStoreBacked()) {
-    return SecureStore.getItemAsync(key);
+    return SecureStore.getItemAsync(storageKey);
   }
 
   if (typeof window === "undefined") {
     return null;
   }
 
-  return window.localStorage.getItem(getWebKey(key));
+  return window.localStorage.getItem(storageKey);
 }
 
 async function setSecureItem(key: string, value: string) {
+  const storageKey = normalizeSecureKey(key);
+
   if (await isSecureStoreBacked()) {
-    await SecureStore.setItemAsync(key, value);
+    await SecureStore.setItemAsync(storageKey, value);
     return;
   }
 
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(getWebKey(key), value);
+    window.localStorage.setItem(storageKey, value);
   }
 }

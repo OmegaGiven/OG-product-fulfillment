@@ -75,7 +75,6 @@ export function ToastProvider({ children }: PropsWithChildren) {
     overlay: {
       left: 0,
       paddingHorizontal: spacing.lg,
-      pointerEvents: "box-none",
       position: "absolute",
       right: 0,
       top: Platform.OS === "web" ? spacing.lg : spacing.xl,
@@ -92,7 +91,6 @@ export function ToastProvider({ children }: PropsWithChildren) {
       justifyContent: "space-between",
       maxWidth: 420,
       minWidth: 280,
-      pointerEvents: "auto",
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md
     },
@@ -142,8 +140,9 @@ export function ToastProvider({ children }: PropsWithChildren) {
     <ToastContext.Provider value={value}>
       {children}
       {toast ? (
-        <View style={styles.overlay}>
+        <View pointerEvents="box-none" style={styles.overlay}>
           <View
+            pointerEvents="auto"
             style={[
               styles.toast,
               toast.variant === "success" ? styles.toastSuccess : null,

@@ -26,6 +26,7 @@ export type BackgroundColor = string;
 type BaseColors = {
   background: string;
   backgroundAccent: string;
+  backgroundWash: string;
   surface: string;
   surfaceRaised: string;
   text: string;
@@ -62,6 +63,7 @@ export const defaultAppearance = {
 const lightBase: BaseColors = {
   background: "#f3ecdf",
   backgroundAccent: "#e8dcc5",
+  backgroundWash: "#f3ecdf",
   surface: "#fffaf2",
   surfaceRaised: "#fffdf9",
   text: "#201a14",
@@ -77,6 +79,7 @@ const lightBase: BaseColors = {
 const darkBase: BaseColors = {
   background: "#171412",
   backgroundAccent: "#221d19",
+  backgroundWash: "#171412",
   surface: "#211c18",
   surfaceRaised: "#2a241f",
   text: "#f7efe6",
@@ -132,6 +135,11 @@ function rgbToHex({ r, g, b }: Rgb) {
     .join("")}`;
 }
 
+function toRgba(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function mix(hexA: string, hexB: string, amount: number) {
   const a = hexToRgb(hexA);
   const b = hexToRgb(hexB);
@@ -176,6 +184,7 @@ export function buildTheme(
     presetMode === "dark"
       ? mix(resolvedBackground, "#ffffff", 0.05)
       : mix(resolvedBackground, "#000000", 0.04);
+  const resolvedBackgroundWash = toRgba(resolvedBackground, presetMode === "dark" ? 0.92 : 0.86);
   const resolvedSurface =
     presetMode === "dark"
       ? mix(resolvedBackground, "#ffffff", 0.06)
@@ -198,6 +207,7 @@ export function buildTheme(
       ...base,
       background: resolvedBackground,
       backgroundAccent: resolvedBackgroundAccent,
+      backgroundWash: resolvedBackgroundWash,
       surface: resolvedSurface,
       surfaceRaised: resolvedSurfaceRaised,
       border: resolvedBorder,

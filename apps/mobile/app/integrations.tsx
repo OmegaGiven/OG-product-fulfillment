@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
+import { Modal, ScrollView, TextInput } from "../src/components/SafeNative";
 import { useToast } from "../src/providers/ToastProvider";
 import type {
   IntegrationConnection,
@@ -725,7 +726,7 @@ function createStyles(theme: AppTheme) {
 
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl

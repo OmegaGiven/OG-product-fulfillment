@@ -1,12 +1,14 @@
 import { useRouter } from "expo-router";
-import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useState } from "react";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
+import { Modal, ScrollView, TextInput } from "../src/components/SafeNative";
 import { useColumnVisibility } from "../src/hooks/useColumnVisibility";
+import { useSavedViews, type SavedViewSortState } from "../src/hooks/useSavedViews";
 import { useBootstrapApp } from "../src/hooks/useBootstrapApp";
 import { useFulfillmentRuns } from "../src/hooks/useFulfillmentRuns";
 import { useWorkflowTemplates } from "../src/hooks/useWorkflowTemplates";
@@ -17,24 +19,46 @@ import type { AppTheme } from "../src/theme";
 
 type FulfillmentColumnKey =
   | "fulfillmentId"
-  | "workflowId"
+  | "name"
+  | "executionMode"
+  | "workflowTemplateId"
+  | "currentStepIndex"
+  | "stepOrder"
   | "status"
-  | "step"
-  | "mode"
-  | "matched"
-  | "channel"
+  | "matchedOrderId"
+  | "selectedChannel"
+  | "touchedByUsers"
   | "created"
   | "updated"
   | "actions";
 
+const FULFILLMENT_COLUMN_KEYS: FulfillmentColumnKey[] = [
+  "fulfillmentId",
+  "name",
+  "executionMode",
+  "workflowTemplateId",
+  "currentStepIndex",
+  "stepOrder",
+  "status",
+  "matchedOrderId",
+  "selectedChannel",
+  "touchedByUsers",
+  "created",
+  "updated",
+  "actions"
+];
+
 const FULFILLMENT_COLUMN_LABELS: Record<FulfillmentColumnKey, string> = {
   fulfillmentId: "Fulfillment ID",
-  workflowId: "Workflow ID",
+  name: "Run Name",
+  executionMode: "Execution Mode",
+  workflowTemplateId: "Workflow ID",
+  currentStepIndex: "Current Step Index",
+  stepOrder: "Step Order",
   status: "Status",
-  step: "Step",
-  mode: "Mode",
-  matched: "Matched",
-  channel: "Channel",
+  matchedOrderId: "Matched Order ID",
+  selectedChannel: "Selected Channel",
+  touchedByUsers: "Touched By Users",
   created: "Created",
   updated: "Updated",
   actions: "Actions"
@@ -42,16 +66,65 @@ const FULFILLMENT_COLUMN_LABELS: Record<FulfillmentColumnKey, string> = {
 
 const DEFAULT_FULFILLMENT_COLUMN_VISIBILITY: Record<FulfillmentColumnKey, boolean> = {
   fulfillmentId: true,
-  workflowId: true,
+  name: true,
+  executionMode: true,
+  workflowTemplateId: true,
+  currentStepIndex: true,
+  stepOrder: true,
   status: true,
-  step: true,
-  mode: true,
-  matched: true,
-  channel: true,
+  matchedOrderId: true,
+  selectedChannel: true,
+  touchedByUsers: true,
   created: true,
   updated: true,
   actions: true
 };
+
+type FulfillmentFilters = {
+  fulfillmentId: string;
+  name: string;
+  executionMode: string;
+  workflowTemplateId: string;
+  currentStepIndex: string;
+  stepOrder: string;
+  status: string;
+  matchedOrderId: string;
+  selectedChannel: string;
+  touchedByUsers: string;
+  created: string;
+  updated: string;
+};
+
+const DEFAULT_FULFILLMENT_FILTERS: FulfillmentFilters = {
+  fulfillmentId: "",
+  name: "",
+  executionMode: "",
+  workflowTemplateId: "",
+  currentStepIndex: "",
+  stepOrder: "",
+  status: "",
+  matchedOrderId: "",
+  selectedChannel: "",
+  touchedByUsers: "",
+  created: "",
+  updated: ""
+};
+
+type FulfillmentSortKey =
+  | "fulfillmentId"
+  | "name"
+  | "executionMode"
+  | "workflowTemplateId"
+  | "currentStepIndex"
+  | "stepOrder"
+  | "status"
+  | "matchedOrderId"
+  | "selectedChannel"
+  | "touchedByUsers"
+  | "created"
+  | "updated";
+
+type FulfillmentSortState = SavedViewSortState<FulfillmentSortKey>;
 
 function formatRunTitle(
   workflowName: string | undefined,
@@ -66,6 +139,38 @@ function escapeCsvValue(value: string) {
   return `"${normalized}"`;
 }
 
+function getFulfillmentColumnValue(
+  run: ReturnType<typeof useFulfillmentRuns>["runs"][number],
+  column: Exclude<FulfillmentColumnKey, "actions">
+) {
+  switch (column) {
+    case "fulfillmentId":
+      return run.id;
+    case "name":
+      return run.name;
+    case "executionMode":
+      return run.executionMode;
+    case "workflowTemplateId":
+      return run.workflowTemplateId;
+    case "currentStepIndex":
+      return run.currentStepIndex;
+    case "stepOrder":
+      return run.stepOrder.join(", ");
+    case "status":
+      return run.status;
+    case "matchedOrderId":
+      return run.matchedOrderId ?? "";
+    case "selectedChannel":
+      return run.selectedChannel ?? "";
+    case "touchedByUsers":
+      return run.touchedByUsers.join(", ");
+    case "created":
+      return run.createdAt;
+    case "updated":
+      return run.updatedAt;
+  }
+}
+
 function buildFulfillmentExportCsv(
   runs: ReturnType<typeof useFulfillmentRuns>["runs"],
   visibleColumns: FulfillmentColumnKey[]
@@ -73,28 +178,7 @@ function buildFulfillmentExportCsv(
   const exportableColumns = visibleColumns.filter((column) => column !== "actions");
   const header = exportableColumns.map((column) => FULFILLMENT_COLUMN_LABELS[column]);
   const rows = runs.map((run) =>
-    exportableColumns.map((column) => {
-      switch (column) {
-        case "fulfillmentId":
-          return run.id;
-        case "workflowId":
-          return run.workflowTemplateId;
-        case "status":
-          return run.status;
-        case "step":
-          return `${run.currentStepIndex + 1} / ${run.stepOrder.length}`;
-        case "mode":
-          return run.executionMode;
-        case "matched":
-          return run.matchedOrderId ?? "No";
-        case "channel":
-          return run.selectedChannel ?? "None";
-        case "created":
-          return run.createdAt;
-        case "updated":
-          return run.updatedAt;
-      }
-    })
+    exportableColumns.map((column) => getFulfillmentColumnValue(run, column))
   );
 
   return [header, ...rows]
@@ -116,60 +200,50 @@ export default function HistoryScreen() {
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
+  const [isViewsMenuOpen, setIsViewsMenuOpen] = useState(false);
+  const [isSaveViewOpen, setIsSaveViewOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [filters, setFilters] = useState({
-    fulfillmentId: "",
-    workflowId: "",
-    status: "",
-    step: "",
-    mode: "",
-    matched: "",
-    channel: "",
-    created: "",
-    updated: ""
-  });
-  const [sortState, setSortState] = useState<{
-    key:
-      | "fulfillmentId"
-      | "workflowId"
-      | "status"
-      | "step"
-      | "mode"
-      | "matched"
-      | "channel"
-      | "created"
-      | "updated"
-      | null;
-    direction: "asc" | "desc" | null;
-  }>({
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [pendingViewName, setPendingViewName] = useState("");
+  const [filters, setFilters] = useState<FulfillmentFilters>(DEFAULT_FULFILLMENT_FILTERS);
+  const [sortState, setSortState] = useState<FulfillmentSortState>({
     key: null,
     direction: null
   });
-  const { visibility, visibleColumnKeys, toggleColumn } =
+  const { visibility, visibleColumnKeys, setVisibility, toggleColumn } =
     useColumnVisibility<FulfillmentColumnKey>(
       "fulfillments-column-visibility",
       DEFAULT_FULFILLMENT_COLUMN_VISIBILITY
     );
+  const {
+    views: savedViews,
+    saveView,
+    deleteView
+  } = useSavedViews<FulfillmentFilters, FulfillmentColumnKey, FulfillmentSortKey>(
+    "fulfillments-saved-views",
+    "fulfillments"
+  );
+  const activeSavedView = savedViews.find((view) => view.id === activeViewId);
+  const viewsButtonLabel = `Views: ${activeSavedView?.name ?? "Custom"} ${isViewsMenuOpen ? "↑" : "↓"}`;
 
-  const filteredRuns = runs.filter((run) => {
-    const workflow = templates.find((template) => template.id === run.workflowTemplateId);
-    const stepLabel = `${run.currentStepIndex + 1} / ${run.stepOrder.length}`;
-    const createdLabel = new Date(run.createdAt).toLocaleDateString();
-    const updatedLabel = new Date(run.updatedAt).toLocaleDateString();
-    const matchedLabel = run.matchedOrderId ? String(run.matchedOrderId) : "no";
+  const filteredRuns = runs.filter((run) =>
+    FULFILLMENT_COLUMN_KEYS.filter((column) => column !== "actions").every((column) => {
+      const filterValue = filters[column].trim().toLowerCase();
+      if (!filterValue) {
+        return true;
+      }
 
-    return (
-      String(run.id).includes(filters.fulfillmentId.trim()) &&
-      String(run.workflowTemplateId).includes(filters.workflowId.trim()) &&
-      run.status.toLowerCase().includes(filters.status.trim().toLowerCase()) &&
-      stepLabel.toLowerCase().includes(filters.step.trim().toLowerCase()) &&
-      run.executionMode.toLowerCase().includes(filters.mode.trim().toLowerCase()) &&
-      matchedLabel.toLowerCase().includes(filters.matched.trim().toLowerCase()) &&
-      String(run.selectedChannel ?? "none").toLowerCase().includes(filters.channel.trim().toLowerCase()) &&
-      createdLabel.toLowerCase().includes(filters.created.trim().toLowerCase()) &&
-      updatedLabel.toLowerCase().includes(filters.updated.trim().toLowerCase())
-    );
-  });
+      if (column === "created") {
+        return new Date(run.createdAt).toLocaleString().toLowerCase().includes(filterValue);
+      }
+
+      if (column === "updated") {
+        return new Date(run.updatedAt).toLocaleString().toLowerCase().includes(filterValue);
+      }
+
+      return String(getFulfillmentColumnValue(run, column)).toLowerCase().includes(filterValue);
+    })
+  );
 
   const sortedRuns = [...filteredRuns].sort((left, right) => {
     if (!sortState.key || !sortState.direction) {
@@ -177,45 +251,39 @@ export default function HistoryScreen() {
     }
 
     const directionFactor = sortState.direction === "asc" ? 1 : -1;
-    const leftStep = left.currentStepIndex + 1;
-    const rightStep = right.currentStepIndex + 1;
-
-    switch (sortState.key) {
-      case "fulfillmentId":
-        return (left.id - right.id) * directionFactor;
-      case "workflowId":
-        return (left.workflowTemplateId - right.workflowTemplateId) * directionFactor;
-      case "status":
-        return left.status.localeCompare(right.status) * directionFactor;
-      case "step":
-        return (leftStep - rightStep) * directionFactor;
-      case "mode":
-        return left.executionMode.localeCompare(right.executionMode) * directionFactor;
-      case "matched":
-        return ((left.matchedOrderId ?? -1) - (right.matchedOrderId ?? -1)) * directionFactor;
-      case "channel":
-        return String(left.selectedChannel ?? "").localeCompare(String(right.selectedChannel ?? "")) * directionFactor;
-      case "created":
-        return (new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()) * directionFactor;
-      case "updated":
-        return (new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()) * directionFactor;
-      default:
-        return 0;
+    if (sortState.key === "created") {
+      return (new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()) * directionFactor;
     }
-  });
 
-  function toggleSort(
-    key:
-      | "fulfillmentId"
-      | "workflowId"
-      | "status"
-      | "step"
-      | "mode"
-      | "matched"
-      | "channel"
-      | "created"
-      | "updated"
-  ) {
+    if (sortState.key === "updated") {
+      return (new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()) * directionFactor;
+    }
+
+    if (sortState.key === "fulfillmentId") {
+      return (left.id - right.id) * directionFactor;
+    }
+
+    if (sortState.key === "workflowTemplateId") {
+      return (left.workflowTemplateId - right.workflowTemplateId) * directionFactor;
+    }
+
+    if (sortState.key === "currentStepIndex") {
+      return (left.currentStepIndex - right.currentStepIndex) * directionFactor;
+    }
+
+    if (sortState.key === "matchedOrderId") {
+      return ((left.matchedOrderId ?? -1) - (right.matchedOrderId ?? -1)) * directionFactor;
+    }
+
+    return String(getFulfillmentColumnValue(left, sortState.key)).localeCompare(
+      String(getFulfillmentColumnValue(right, sortState.key))
+    ) * directionFactor;
+  });
+  const completedRunCount = runs.filter((run) => run.status === "completed").length;
+  const inProgressRunCount = runs.length - completedRunCount;
+
+  function toggleSort(key: FulfillmentSortKey) {
+    setActiveViewId(null);
     setSortState((current) => {
       if (current.key !== key) {
         return { key, direction: "asc" };
@@ -233,18 +301,17 @@ export default function HistoryScreen() {
     });
   }
 
-  function getSortArrow(
-    key:
-      | "fulfillmentId"
-      | "workflowId"
-      | "status"
-      | "step"
-      | "mode"
-      | "matched"
-      | "channel"
-      | "created"
-      | "updated"
-  ) {
+  function updateFilter<Key extends keyof FulfillmentFilters>(key: Key, value: FulfillmentFilters[Key]) {
+    setActiveViewId(null);
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  async function handleToggleColumn(columnKey: FulfillmentColumnKey) {
+    setActiveViewId(null);
+    await toggleColumn(columnKey);
+  }
+
+  function getSortArrow(key: FulfillmentSortKey) {
     if (sortState.key !== key || !sortState.direction) {
       return "";
     }
@@ -313,6 +380,120 @@ export default function HistoryScreen() {
     }
   }
 
+  async function applySavedView(viewId: string) {
+    const view = savedViews.find((entry) => entry.id === viewId);
+    if (!view) {
+      return;
+    }
+
+    setFilters(view.filters);
+    setSortState(view.sortState);
+    await setVisibility(view.visibility);
+    setActiveViewId(view.id);
+    setIsViewsMenuOpen(false);
+    showToast(`Applied view "${view.name}".`, { variant: "success" });
+  }
+
+  async function handleDeleteSavedView(viewId: string) {
+    await deleteView(viewId);
+    setActiveViewId((current) => (current === viewId ? null : current));
+    setIsViewsMenuOpen(false);
+    showToast("Saved view deleted.", { variant: "success" });
+  }
+
+  async function handleClearFilters() {
+    setActiveViewId(null);
+    setFilters(DEFAULT_FULFILLMENT_FILTERS);
+    setSortState({
+      key: null,
+      direction: null
+    });
+    await setVisibility(DEFAULT_FULFILLMENT_COLUMN_VISIBILITY);
+    setIsViewsMenuOpen(false);
+  }
+
+  async function handleSaveView() {
+    try {
+      await saveView(pendingViewName, filters, visibility, sortState);
+      setPendingViewName("");
+      setIsSaveViewOpen(false);
+      showToast("Saved view updated.", { variant: "success" });
+    } catch (nextError) {
+      showToast((nextError as Error).message, { variant: "error", durationMs: 4200 });
+    }
+  }
+
+  function getFulfillmentColumnCellStyle(column: FulfillmentColumnKey) {
+    switch (column) {
+      case "fulfillmentId":
+      case "currentStepIndex":
+        return styles.cellCompact;
+      case "created":
+      case "updated":
+        return styles.cellDate;
+      case "stepOrder":
+      case "touchedByUsers":
+      case "name":
+        return styles.cellWide;
+      case "actions":
+        return styles.cellActions;
+      default:
+        return styles.cellStandard;
+    }
+  }
+
+  function renderFulfillmentCell(run: ReturnType<typeof useFulfillmentRuns>["runs"][number], column: FulfillmentColumnKey) {
+    if (column === "actions") {
+      const workflow = templates.find((template) => template.id === run.workflowTemplateId);
+      const runTitle = formatRunTitle(workflow?.name, run.name, run.id);
+
+      return (
+        <>
+          <Pressable
+            onPress={() => router.push(`/runs/${run.id}`)}
+            style={styles.openButton}
+          >
+            <Text style={styles.openButtonText}>Open</Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              setRunPendingDelete({
+                id: run.id,
+                title: runTitle
+              })
+            }
+            style={styles.deleteButton}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </Pressable>
+        </>
+      );
+    }
+
+    if (column === "matchedOrderId") {
+      return run.matchedOrderId ? (
+        <Pressable
+          onPress={() => router.push(`/orders/${run.matchedOrderId}`)}
+          style={styles.openButton}
+        >
+          <Text style={styles.openButtonText}>{run.matchedOrderId}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.cellSecondaryText}>—</Text>
+      );
+    }
+
+    const value = getFulfillmentColumnValue(run, column);
+    const displayValue =
+      column === "created"
+        ? new Date(run.createdAt).toLocaleString()
+        : column === "updated"
+          ? new Date(run.updatedAt).toLocaleString()
+          : String(value || "—");
+
+    return <Text style={styles.cellPrimaryText}>{displayValue}</Text>;
+  }
+
   if (!isReady) {
     return (
       <View style={styles.centered}>
@@ -333,6 +514,25 @@ export default function HistoryScreen() {
       ) : null}
 
       <View style={styles.filterActionsRow}>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryLabel}>Filtered</Text>
+            <Text style={styles.summaryValue}>{filteredRuns.length}</Text>
+          </View>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryLabel}>Runs</Text>
+            <Text style={styles.summaryValue}>{runs.length}</Text>
+          </View>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryLabel}>Done</Text>
+            <Text style={styles.summaryValue}>{completedRunCount}</Text>
+          </View>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryLabel}>Active</Text>
+            <Text style={styles.summaryValue}>{inProgressRunCount}</Text>
+          </View>
+        </View>
+
         <View style={styles.filterButtons}>
           <Pressable
             onPress={() => setIsCustomizeOpen(true)}
@@ -341,6 +541,50 @@ export default function HistoryScreen() {
             <Text style={styles.clearButtonText}>Columns</Text>
           </Pressable>
           <Pressable
+            onPress={() => {
+              setPendingViewName("");
+              setIsSaveViewOpen(true);
+            }}
+            style={styles.clearButton}
+          >
+            <Text style={styles.clearButtonText}>Save View</Text>
+          </Pressable>
+          <View style={styles.viewsMenuWrap}>
+            <Pressable
+              onPress={() => setIsViewsMenuOpen((current) => !current)}
+              style={[styles.clearButton, isViewsMenuOpen ? styles.viewsMenuButtonActive : null]}
+            >
+              <Text style={styles.clearButtonText}>{viewsButtonLabel}</Text>
+            </Pressable>
+            {isViewsMenuOpen ? (
+              <View style={styles.viewsDropdown}>
+                {savedViews.length === 0 ? (
+                  <Text style={styles.viewsDropdownEmpty}>No saved fulfillment views yet.</Text>
+                ) : (
+                  savedViews.map((view) => (
+                    <View key={view.id} style={styles.savedViewCard}>
+                      <Text style={styles.tableHeaderText}>{view.name}</Text>
+                      <Text style={styles.errorText}>
+                        Updated {new Date(view.updatedAt).toLocaleString()}
+                      </Text>
+                      <View style={styles.modalActions}>
+                        <Pressable onPress={() => void applySavedView(view.id)} style={styles.openButton}>
+                          <Text style={styles.openButtonText}>Apply</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => void handleDeleteSavedView(view.id)}
+                          style={styles.deleteButton}
+                        >
+                          <Text style={styles.deleteButtonText}>Delete</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            ) : null}
+          </View>
+          <Pressable
             onPress={() => void handleExport()}
             style={[styles.clearButton, isExporting ? styles.buttonDisabled : null]}
             disabled={isExporting}
@@ -348,45 +592,11 @@ export default function HistoryScreen() {
             <Text style={styles.clearButtonText}>{isExporting ? "Exporting..." : "Export"}</Text>
           </Pressable>
           <Pressable
-            onPress={() =>
-              setFilters({
-                fulfillmentId: "",
-                workflowId: "",
-                status: "",
-                step: "",
-                mode: "",
-                matched: "",
-                channel: "",
-                created: "",
-                updated: ""
-              })
-            }
+            onPress={() => void handleClearFilters()}
             style={styles.clearButton}
           >
             <Text style={styles.clearButtonText}>Clear Filters</Text>
           </Pressable>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Filtered</Text>
-            <Text style={styles.statValue}>{filteredRuns.length}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Runs</Text>
-            <Text style={styles.statValue}>{runs.length}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Completed</Text>
-            <Text style={styles.statValue}>
-              {runs.filter((run) => run.status === "completed").length}
-            </Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>In Progress</Text>
-            <Text style={styles.statValue}>
-              {runs.filter((run) => run.status !== "completed").length}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -411,150 +621,47 @@ export default function HistoryScreen() {
           >
             <View style={styles.tableInner}>
               <View style={[styles.tableRow, styles.tableHeaderRow]}>
-                {visibility.fulfillmentId ? <Pressable
-                  onPress={() => toggleSort("fulfillmentId")}
-                  style={[styles.tableCell, styles.cellRunId, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Fulfillment ID{getSortArrow("fulfillmentId")}</Text>
-                </Pressable> : null}
-                {visibility.workflowId ? <Pressable
-                  onPress={() => toggleSort("workflowId")}
-                  style={[styles.tableCell, styles.cellWorkflow, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Workflow ID{getSortArrow("workflowId")}</Text>
-                </Pressable> : null}
-                {visibility.status ? <Pressable
-                  onPress={() => toggleSort("status")}
-                  style={[styles.tableCell, styles.cellStatus, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Status{getSortArrow("status")}</Text>
-                </Pressable> : null}
-                {visibility.step ? <Pressable
-                  onPress={() => toggleSort("step")}
-                  style={[styles.tableCell, styles.cellStep, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Step{getSortArrow("step")}</Text>
-                </Pressable> : null}
-                {visibility.mode ? <Pressable
-                  onPress={() => toggleSort("mode")}
-                  style={[styles.tableCell, styles.cellMode, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Mode{getSortArrow("mode")}</Text>
-                </Pressable> : null}
-                {visibility.matched ? <Pressable
-                  onPress={() => toggleSort("matched")}
-                  style={[styles.tableCell, styles.cellMatch, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Matched{getSortArrow("matched")}</Text>
-                </Pressable> : null}
-                {visibility.channel ? <Pressable
-                  onPress={() => toggleSort("channel")}
-                  style={[styles.tableCell, styles.cellChannel, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Channel{getSortArrow("channel")}</Text>
-                </Pressable> : null}
-                {visibility.created ? <Pressable
-                  onPress={() => toggleSort("created")}
-                  style={[styles.tableCell, styles.cellDate, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Created{getSortArrow("created")}</Text>
-                </Pressable> : null}
-                {visibility.updated ? <Pressable
-                  onPress={() => toggleSort("updated")}
-                  style={[styles.tableCell, styles.cellDate, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Updated{getSortArrow("updated")}</Text>
-                </Pressable> : null}
-                {visibility.actions ? <Text style={[styles.tableCell, styles.cellActions, styles.tableHeaderText]}>Actions</Text> : null}
+                {FULFILLMENT_COLUMN_KEYS.map((column) =>
+                  visibility[column] ? (
+                    column === "actions" ? (
+                      <Text key={`header:${column}`} style={[styles.tableCell, getFulfillmentColumnCellStyle(column), styles.tableHeaderText]}>
+                        {FULFILLMENT_COLUMN_LABELS[column]}
+                      </Text>
+                    ) : (
+                      <Pressable
+                        key={`header:${column}`}
+                        onPress={() => toggleSort(column)}
+                        style={[styles.tableCell, getFulfillmentColumnCellStyle(column), styles.tableHeaderCell]}
+                      >
+                        <Text style={styles.tableHeaderText}>
+                          {FULFILLMENT_COLUMN_LABELS[column]}{getSortArrow(column)}
+                        </Text>
+                      </Pressable>
+                    )
+                  ) : null
+                )}
               </View>
               <View style={[styles.tableRow, styles.tableFilterRow]}>
-                {visibility.fulfillmentId ? <View style={[styles.tableCell, styles.cellRunId]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, fulfillmentId: value }))}
-                    placeholder="Filter"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.fulfillmentId}
-                  />
-                </View> : null}
-                {visibility.workflowId ? <View style={[styles.tableCell, styles.cellWorkflow]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, workflowId: value }))}
-                    placeholder="Filter"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.workflowId}
-                  />
-                </View> : null}
-                {visibility.status ? <View style={[styles.tableCell, styles.cellStatus]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, status: value }))}
-                    placeholder="Filter"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.status}
-                  />
-                </View> : null}
-                {visibility.step ? <View style={[styles.tableCell, styles.cellStep]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, step: value }))}
-                    placeholder="Filter"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.step}
-                  />
-                </View> : null}
-                {visibility.mode ? <View style={[styles.tableCell, styles.cellMode]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, mode: value }))}
-                    placeholder="Filter"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.mode}
-                  />
-                </View> : null}
-                {visibility.matched ? <View style={[styles.tableCell, styles.cellMatch]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, matched: value }))}
-                    placeholder="Filter"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.matched}
-                  />
-                </View> : null}
-                {visibility.channel ? <View style={[styles.tableCell, styles.cellChannel]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, channel: value }))}
-                    placeholder="Filter"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.channel}
-                  />
-                </View> : null}
-                {visibility.created ? <View style={[styles.tableCell, styles.cellDate]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, created: value }))}
-                    placeholder="MM/DD/YYYY"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.created}
-                  />
-                </View> : null}
-                {visibility.updated ? <View style={[styles.tableCell, styles.cellDate]}>
-                  <TextInput
-                    onChangeText={(value) => setFilters((current) => ({ ...current, updated: value }))}
-                    placeholder="MM/DD/YYYY"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.filterInput}
-                    value={filters.updated}
-                  />
-                </View> : null}
-                {visibility.actions ? <View style={[styles.tableCell, styles.cellActions]} /> : null}
+                {FULFILLMENT_COLUMN_KEYS.map((column) =>
+                  visibility[column] ? (
+                    column === "actions" ? (
+                      <View key={`filter:${column}`} style={[styles.tableCell, getFulfillmentColumnCellStyle(column)]} />
+                    ) : (
+                      <View key={`filter:${column}`} style={[styles.tableCell, getFulfillmentColumnCellStyle(column)]}>
+                        <TextInput
+                          onChangeText={(value) => updateFilter(column, value)}
+                          placeholder={column === "created" || column === "updated" ? "MM/DD/YYYY" : "Filter"}
+                          placeholderTextColor={theme.colors.muted}
+                          style={styles.filterInput}
+                          value={filters[column]}
+                        />
+                      </View>
+                    )
+                  ) : null
+                )}
               </View>
 
               {sortedRuns.map((run, index) => {
-                const workflow = templates.find((template) => template.id === run.workflowTemplateId);
-                const runTitle = formatRunTitle(workflow?.name, run.name, run.id);
                 return (
                   <View
                     key={run.id}
@@ -563,71 +670,13 @@ export default function HistoryScreen() {
                       index % 2 === 1 ? styles.tableRowAlt : null
                     ]}
                   >
-                    {visibility.fulfillmentId ? <View style={[styles.tableCell, styles.cellRunId]}>
-                      <Text style={styles.cellPrimaryText}>
-                        {String(run.id)}
-                      </Text>
-                    </View> : null}
-                    {visibility.workflowId ? <View style={[styles.tableCell, styles.cellWorkflow]}>
-                      <Text style={styles.cellPrimaryText}>
-                        {run.workflowTemplateId}
-                      </Text>
-                    </View> : null}
-                    {visibility.status ? <View style={[styles.tableCell, styles.cellStatus]}>
-                      <Text style={styles.cellPrimaryText}>{run.status}</Text>
-                    </View> : null}
-                    {visibility.step ? <View style={[styles.tableCell, styles.cellStep]}>
-                      <Text style={styles.cellPrimaryText}>
-                        {run.currentStepIndex + 1} / {run.stepOrder.length}
-                      </Text>
-                    </View> : null}
-                    {visibility.mode ? <View style={[styles.tableCell, styles.cellMode]}>
-                      <Text style={styles.cellPrimaryText}>{run.executionMode}</Text>
-                    </View> : null}
-                    {visibility.matched ? <View style={[styles.tableCell, styles.cellMatch]}>
-                      {run.matchedOrderId ? (
-                        <Pressable
-                          onPress={() => router.push(`/orders/${run.matchedOrderId}`)}
-                          style={styles.openButton}
-                        >
-                          <Text style={styles.openButtonText}>{run.matchedOrderId}</Text>
-                        </Pressable>
-                      ) : (
-                        <Text style={styles.cellPrimaryText}>No</Text>
-                      )}
-                    </View> : null}
-                    {visibility.channel ? <View style={[styles.tableCell, styles.cellChannel]}>
-                      <Text style={styles.cellPrimaryText}>{run.selectedChannel ?? "None"}</Text>
-                    </View> : null}
-                    {visibility.created ? <View style={[styles.tableCell, styles.cellDate]}>
-                      <Text style={styles.cellPrimaryText}>
-                        {new Date(run.createdAt).toLocaleString()}
-                      </Text>
-                    </View> : null}
-                    {visibility.updated ? <View style={[styles.tableCell, styles.cellDate]}>
-                      <Text style={styles.cellPrimaryText}>
-                        {new Date(run.updatedAt).toLocaleString()}
-                      </Text>
-                    </View> : null}
-                    {visibility.actions ? <View style={[styles.tableCell, styles.cellActions]}>
-                      <Pressable
-                        onPress={() => router.push(`/runs/${run.id}`)}
-                        style={styles.openButton}
-                      >
-                        <Text style={styles.openButtonText}>Open</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() =>
-                          setRunPendingDelete({
-                            id: run.id,
-                            title: runTitle
-                          })
-                        }
-                        style={styles.deleteButton}
-                      >
-                        <Text style={styles.deleteButtonText}>Delete</Text>
-                      </Pressable>
-                    </View> : null}
+                    {FULFILLMENT_COLUMN_KEYS.map((column) =>
+                      visibility[column] ? (
+                        <View key={`${run.id}:${column}`} style={[styles.tableCell, getFulfillmentColumnCellStyle(column)]}>
+                          {renderFulfillmentCell(run, column)}
+                        </View>
+                      ) : null
+                    )}
                   </View>
                 );
               })}
@@ -676,6 +725,33 @@ export default function HistoryScreen() {
       <Modal
         animationType="fade"
         transparent
+        visible={isSaveViewOpen}
+        onRequestClose={() => setIsSaveViewOpen(false)}
+      >
+        <View style={styles.modalScrim}>
+          <View style={styles.modalCard}>
+            <Text style={styles.errorTitle}>Save View</Text>
+            <TextInput
+              value={pendingViewName}
+              onChangeText={setPendingViewName}
+              placeholder="Example: Review Queue"
+              placeholderTextColor={theme.colors.muted}
+              style={styles.filterInput}
+            />
+            <View style={styles.modalActions}>
+              <Pressable onPress={() => setIsSaveViewOpen(false)} style={styles.openButton}>
+                <Text style={styles.openButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={() => void handleSaveView()} style={styles.clearButton}>
+                <Text style={styles.clearButtonText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        animationType="fade"
+        transparent
         visible={isCustomizeOpen}
         onRequestClose={() => setIsCustomizeOpen(false)}
       >
@@ -686,7 +762,7 @@ export default function HistoryScreen() {
               {(Object.keys(DEFAULT_FULFILLMENT_COLUMN_VISIBILITY) as FulfillmentColumnKey[]).map((columnKey) => (
                 <Pressable
                   key={`fulfillment-column:${columnKey}`}
-                  onPress={() => void toggleColumn(columnKey)}
+                  onPress={() => void handleToggleColumn(columnKey)}
                   style={[styles.openButton, visibility[columnKey] ? styles.columnOptionActive : null]}
                 >
                   <Text style={styles.openButtonText}>
@@ -710,14 +786,14 @@ function createStyles(theme: AppTheme) {
 
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl
     },
     centered: {
       alignItems: "center",
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flex: 1,
       justifyContent: "center",
       padding: spacing.xl
@@ -746,24 +822,46 @@ function createStyles(theme: AppTheme) {
       lineHeight: 20
     },
     filterActionsRow: {
-      alignItems: "flex-start",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.xs,
-      justifyContent: "space-between"
+      gap: spacing.sm,
+      width: "100%",
+      zIndex: 30
     },
     filterButtons: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: spacing.sm
+      gap: spacing.sm,
+      width: "100%",
+      position: "relative",
+      zIndex: 40
     },
-    statsRow: {
-      alignItems: "stretch",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.xs,
-      justifyContent: "flex-end",
-      marginLeft: "auto"
+    viewsMenuWrap: {
+      position: "relative",
+      zIndex: 40
+    },
+    viewsMenuButtonActive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong
+    },
+    viewsDropdown: {
+      backgroundColor: colors.surfaceRaised,
+      borderColor: colors.borderStrong,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      elevation: 12,
+      gap: spacing.sm,
+      left: 0,
+      marginTop: spacing.xs,
+      minWidth: 280,
+      padding: spacing.sm,
+      position: "absolute",
+      top: 32,
+      zIndex: 50
+    },
+    viewsDropdownEmpty: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
+      padding: spacing.sm
     },
     buttonDisabled: {
       opacity: 0.65
@@ -786,27 +884,48 @@ function createStyles(theme: AppTheme) {
       lineHeight: 13,
       textAlignVertical: "center"
     },
-    statCard: {
+    summaryCard: {
       backgroundColor: colors.surfaceRaised,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      elevation: 0,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      width: "100%",
+      zIndex: 0
+    },
+    summaryMetric: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
       borderColor: colors.border,
       borderRadius: radius.lg,
       borderWidth: 1,
-      gap: 2,
-      minWidth: 92,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: spacing.xs + 2
+      flexBasis: 132,
+      flexGrow: 1,
+      gap: spacing.xs,
+      justifyContent: "center",
+      minHeight: 88,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm
     },
-    statLabel: {
+    summaryLabel: {
       color: colors.muted,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: "700",
-      letterSpacing: 0.8,
+      letterSpacing: 0.4,
+      lineHeight: 13,
+      textAlign: "center",
       textTransform: "uppercase"
     },
-    statValue: {
+    summaryValue: {
       color: colors.text,
-      fontSize: 18,
-      fontWeight: "700"
+      fontSize: 24,
+      fontWeight: "700",
+      textAlign: "center"
     },
     emptyCard: {
       backgroundColor: colors.surfaceRaised,
@@ -831,7 +950,8 @@ function createStyles(theme: AppTheme) {
       borderColor: colors.border,
       borderRadius: radius.xl,
       borderWidth: 1,
-      overflow: "hidden"
+      overflow: "hidden",
+      zIndex: 0
     },
     tableScrollContent: {
       flexGrow: 1
@@ -883,40 +1003,20 @@ function createStyles(theme: AppTheme) {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs
     },
-    cellRunId: {
-      flexBasis: 180,
-      flexGrow: 1,
-      minWidth: 180
-    },
-    cellWorkflow: {
-      flexBasis: 240,
-      flexGrow: 1.5,
-      minWidth: 240
-    },
-    cellStatus: {
-      flexBasis: 120,
-      flexGrow: 1,
-      minWidth: 120
-    },
-    cellStep: {
+    cellCompact: {
       flexBasis: 110,
       flexGrow: 0.9,
       minWidth: 110
     },
-    cellMode: {
-      flexBasis: 120,
+    cellStandard: {
+      flexBasis: 150,
       flexGrow: 1,
-      minWidth: 120
-    },
-    cellMatch: {
-      flexBasis: 180,
-      flexGrow: 1.2,
       minWidth: 180
     },
-    cellChannel: {
-      flexBasis: 140,
-      flexGrow: 1,
-      minWidth: 140
+    cellWide: {
+      flexBasis: 260,
+      flexGrow: 1.6,
+      minWidth: 260
     },
     cellDate: {
       flexBasis: 180,
@@ -994,6 +1094,14 @@ function createStyles(theme: AppTheme) {
       maxWidth: 420,
       padding: spacing.xl,
       width: "100%"
+    },
+    savedViewCard: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      gap: spacing.sm,
+      padding: spacing.md
     },
     modalActions: {
       flexDirection: "row",

@@ -17,12 +17,28 @@ import { DEFAULT_WORKFLOW_TEMPLATE } from "../../workflow/defaultWorkflow";
 import { appendTouchedByUser, LOCAL_DEVICE_USER_ID } from "../../utils";
 import { seededTemplates } from "./seedData";
 
-import { bootstrapDb, deleteRecord, deleteRecords, getRecord, listRecords, saveRecord } from "./localDb";
-const ORDER_NAMESPACE = "orders";
-const ORDER_RUN_LINK_NAMESPACE = "order_run_links";
-const RUN_NAMESPACE = "runs";
-const WORKFLOW_NAMESPACE = "workflows";
-const MESSAGE_TEMPLATE_NAMESPACE = "message_templates";
+import {
+  bootstrapDb,
+  deleteRecord,
+  deleteRecords,
+  getRecord,
+  listNamespaceRecords,
+  listRecords,
+  saveRecord
+} from "./localDb";
+
+export const ORDER_NAMESPACE = "orders";
+export const ORDER_RUN_LINK_NAMESPACE = "order_run_links";
+export const RUN_NAMESPACE = "runs";
+export const WORKFLOW_NAMESPACE = "workflows";
+export const MESSAGE_TEMPLATE_NAMESPACE = "message_templates";
+export const STORAGE_NAMESPACES = [
+  ORDER_NAMESPACE,
+  ORDER_RUN_LINK_NAMESPACE,
+  RUN_NAMESPACE,
+  WORKFLOW_NAMESPACE,
+  MESSAGE_TEMPLATE_NAMESPACE
+] as const;
 
 function normalizeRecordId(value: unknown) {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
@@ -264,5 +280,9 @@ export class LocalStorageService implements StorageService {
 
   async deleteMessageTemplate(templateId: number) {
     await deleteRecord(MESSAGE_TEMPLATE_NAMESPACE, String(templateId));
+  }
+
+  async listNamespaceRecords(namespace: string) {
+    return listNamespaceRecords(namespace);
   }
 }

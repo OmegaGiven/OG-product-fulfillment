@@ -3,23 +3,23 @@ import { useRouter } from "expo-router";
 import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
-  Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from "react-native";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
+import { Modal, ScrollView, TextInput } from "../src/components/SafeNative";
 import {
   NAV_KEYS,
   NAV_PAGE_LABELS,
   type NavKey,
   type PageAccessLevel
 } from "../src/accessControl/accessControl";
+import { useSavedViews } from "../src/hooks/useSavedViews";
+import { useServices } from "../src/providers/AppProviders";
 import { useAccessControl } from "../src/providers/AccessControlProvider";
 import { useAppTheme } from "../src/providers/AppearanceProvider";
 import { useToast } from "../src/providers/ToastProvider";
@@ -195,13 +195,15 @@ export default function SettingsScreen() {
     setPositionName,
     toggleNavVisibility,
     addPosition,
-    removePosition
+    removePosition,
+    reloadAccessControlState
   } = useAccessControl();
   const {
     accentColor,
     backgroundColor,
     mode,
     radiusScale,
+    reloadAppearance,
     setAccentColor,
     setBackgroundColor,
     setMode,
@@ -210,6 +212,7 @@ export default function SettingsScreen() {
     spacingScale,
     theme
   } = useAppTheme();
+  const { backupService } = useServices();
   const { showToast } = useToast();
   const { colors } = theme;
   const styles = createStyles(theme);
@@ -223,8 +226,27 @@ export default function SettingsScreen() {
   const [pickerValue, setPickerValue] = useState(hexToHsv(accentColor).v);
   const [spacingTrackWidth, setSpacingTrackWidth] = useState(0);
   const [radiusTrackWidth, setRadiusTrackWidth] = useState(0);
+  const [transferState, setTransferState] = useState<
+    | "idle"
+    | "exporting-data"
+    | "importing-data"
+    | "exporting-order-views"
+    | "importing-order-views"
+    | "exporting-fulfillment-views"
+    | "importing-fulfillment-views"
+  >("idle");
   const colorAreaRef = useRef<HTMLDivElement | null>(null);
   const hueSliderRef = useRef<HTMLDivElement | null>(null);
+  const { exportViews: exportOrderViews, importViews: importOrderViews } = useSavedViews<
+    Record<string, string>,
+    string,
+    string
+  >("orders-saved-views", "orders");
+  const { exportViews: exportFulfillmentViews, importViews: importFulfillmentViews } = useSavedViews<
+    Record<string, string>,
+    string,
+    string
+  >("fulfillments-saved-views", "fulfillments");
 
   const currentEditorColor =
     activeColorEditor === "background" ? pendingBackgroundColor : pendingAccentColor;
@@ -331,6 +353,102 @@ export default function SettingsScreen() {
     };
   }
 
+  async function handleExportData() {
+    try {
+      setTransferState("exporting-data");
+      const summary = await backupService.exportData();
+      showToast(
+        `Exported ${Object.values(summary.namespaceCounts).reduce((sum, count) => sum + count, 0)} records and ${summary.photoCount} photos to ${summary.bundleName}.`
+      );
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!message.toLowerCase().includes("cancel")) {
+        showToast(`Export failed: ${message}`);
+      }
+    } finally {
+      setTransferState("idle");
+    }
+  }
+
+  async function handleImportData() {
+    try {
+      setTransferState("importing-data");
+      const summary = await backupService.importData();
+      await Promise.all([reloadAccessControlState(), reloadAppearance()]);
+      router.replace("/");
+      showToast(
+        `Imported ${Object.values(summary.namespaceCounts).reduce((sum, count) => sum + count, 0)} records and ${summary.photoCount} photos from ${summary.bundleName}.`
+      );
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!message.toLowerCase().includes("cancel")) {
+        showToast(`Import failed: ${message}`);
+      }
+    } finally {
+      setTransferState("idle");
+    }
+  }
+
+  async function handleExportOrderViews() {
+    try {
+      setTransferState("exporting-order-views");
+      const count = await exportOrderViews();
+      showToast(`${count} saved order view${count === 1 ? "" : "s"} ready to share.`);
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!message.toLowerCase().includes("cancel")) {
+        showToast(`Order view export failed: ${message}`);
+      }
+    } finally {
+      setTransferState("idle");
+    }
+  }
+
+  async function handleImportOrderViews() {
+    try {
+      setTransferState("importing-order-views");
+      const count = await importOrderViews();
+      showToast(`Imported ${count} order view${count === 1 ? "" : "s"}.`);
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!message.toLowerCase().includes("cancel")) {
+        showToast(`Order view import failed: ${message}`);
+      }
+    } finally {
+      setTransferState("idle");
+    }
+  }
+
+  async function handleExportFulfillmentViews() {
+    try {
+      setTransferState("exporting-fulfillment-views");
+      const count = await exportFulfillmentViews();
+      showToast(`${count} saved fulfillment view${count === 1 ? "" : "s"} ready to share.`);
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!message.toLowerCase().includes("cancel")) {
+        showToast(`Fulfillment view export failed: ${message}`);
+      }
+    } finally {
+      setTransferState("idle");
+    }
+  }
+
+  async function handleImportFulfillmentViews() {
+    try {
+      setTransferState("importing-fulfillment-views");
+      const count = await importFulfillmentViews();
+      showToast(`Imported ${count} fulfillment view${count === 1 ? "" : "s"}.`);
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!message.toLowerCase().includes("cancel")) {
+        showToast(`Fulfillment view import failed: ${message}`);
+      }
+    } finally {
+      setTransferState("idle");
+    }
+  }
+
   return (
     <>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -359,6 +477,93 @@ export default function SettingsScreen() {
           <Pressable onPress={() => router.push("/integrations")} style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Manage Integrations</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.cardTitle}>Data Transfer</Text>
+            <View style={styles.versionPill}>
+              <Text style={styles.versionText}>CSV + Photos</Text>
+            </View>
+          </View>
+          <Text style={styles.metaText}>
+            Export the local database tables as CSV files with a matching <Text style={styles.inlineCode}>manifest.json</Text> and <Text style={styles.inlineCode}>photos/</Text> folder. Import by selecting that exported backup folder from another app build.
+          </Text>
+          <View style={styles.transferActionRow}>
+            <Pressable
+              onPress={() => void handleExportData()}
+              style={[styles.primaryButton, transferState !== "idle" ? styles.buttonDisabled : null]}
+              disabled={transferState !== "idle"}
+            >
+              <Text style={styles.primaryButtonText}>
+                {transferState === "exporting-data" ? "Exporting..." : "Export Data"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void handleImportData()}
+              style={[styles.secondaryButton, transferState !== "idle" ? styles.buttonDisabled : null]}
+              disabled={transferState !== "idle"}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {transferState === "importing-data" ? "Importing..." : "Import Data"}
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={styles.metaText}>
+            Import replaces the current local tables and restores saved appearance, access control, integrations, and captured photo files.
+          </Text>
+          <View style={styles.transferSubsection}>
+            <Text style={styles.transferSubsectionTitle}>Saved Order Views</Text>
+            <Text style={styles.metaText}>
+              Share saved order filters, columns, and sort setups between devices.
+            </Text>
+            <View style={styles.transferActionRow}>
+              <Pressable
+                onPress={() => void handleExportOrderViews()}
+                style={[styles.primaryButton, transferState !== "idle" ? styles.buttonDisabled : null]}
+                disabled={transferState !== "idle"}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {transferState === "exporting-order-views" ? "Exporting..." : "Export Order Views"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleImportOrderViews()}
+                style={[styles.secondaryButton, transferState !== "idle" ? styles.buttonDisabled : null]}
+                disabled={transferState !== "idle"}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {transferState === "importing-order-views" ? "Importing..." : "Import Order Views"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+          <View style={styles.transferSubsection}>
+            <Text style={styles.transferSubsectionTitle}>Saved Fulfillment Views</Text>
+            <Text style={styles.metaText}>
+              Share saved fulfillment filters, visible columns, and sorting between devices.
+            </Text>
+            <View style={styles.transferActionRow}>
+              <Pressable
+                onPress={() => void handleExportFulfillmentViews()}
+                style={[styles.primaryButton, transferState !== "idle" ? styles.buttonDisabled : null]}
+                disabled={transferState !== "idle"}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {transferState === "exporting-fulfillment-views" ? "Exporting..." : "Export Fulfillment Views"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleImportFulfillmentViews()}
+                style={[styles.secondaryButton, transferState !== "idle" ? styles.buttonDisabled : null]}
+                disabled={transferState !== "idle"}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {transferState === "importing-fulfillment-views" ? "Importing..." : "Import Fulfillment Views"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
 
         <View style={styles.card}>
@@ -913,7 +1118,7 @@ function createStyles(theme: AppTheme) {
 
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl
@@ -1179,6 +1384,23 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 0.8,
       textTransform: "uppercase"
     },
+    transferActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm
+    },
+    transferSubsection: {
+      borderTopColor: colors.border,
+      borderTopWidth: 1,
+      gap: spacing.sm,
+      marginTop: spacing.md,
+      paddingTop: spacing.md
+    },
+    transferSubsectionTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "700"
+    },
     secondaryButton: {
       backgroundColor: colors.background,
       borderColor: colors.border,
@@ -1206,6 +1428,16 @@ function createStyles(theme: AppTheme) {
       fontSize: 15,
       fontWeight: "700",
       textAlign: "center"
+    },
+    inlineCode: {
+      color: colors.text,
+      fontFamily: Platform.select({
+        ios: "Menlo",
+        android: "monospace",
+        default: "monospace"
+      }),
+      fontSize: 13,
+      fontWeight: "700"
     },
     ghostButton: {
       backgroundColor: colors.dangerSoft,

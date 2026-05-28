@@ -4,6 +4,24 @@ import { getSecureJson, setSecureJson } from "../services/local/localSecureStore
 
 type ColumnVisibilityState<ColumnKey extends string> = Record<ColumnKey, boolean>;
 
+function normalizeBoolean(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") {
+      return true;
+    }
+    if (normalized === "false") {
+      return false;
+    }
+  }
+
+  return fallback;
+}
+
 export function useColumnVisibility<ColumnKey extends string>(
   storageKey: string,
   defaultVisibility: ColumnVisibilityState<ColumnKey>
@@ -22,7 +40,7 @@ export function useColumnVisibility<ColumnKey extends string>(
       setVisibility((current) => {
         const nextVisibility = { ...current };
         for (const key of Object.keys(defaultVisibility) as ColumnKey[]) {
-          nextVisibility[key] = stored[key] ?? defaultVisibility[key];
+          nextVisibility[key] = normalizeBoolean(stored[key], defaultVisibility[key]);
         }
         return nextVisibility;
       });
@@ -62,6 +80,7 @@ export function useColumnVisibility<ColumnKey extends string>(
   return {
     visibility,
     visibleColumnKeys,
+    setVisibility: updateVisibility,
     toggleColumn
   };
 }

@@ -1,8 +1,9 @@
 import { useRouter } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
+import { ScrollView } from "../src/components/SafeNative";
 import { useBootstrapApp } from "../src/hooks/useBootstrapApp";
 import { useFulfillmentRuns } from "../src/hooks/useFulfillmentRuns";
 import { useWorkflowTemplates } from "../src/hooks/useWorkflowTemplates";
@@ -30,7 +31,7 @@ export default function HomeScreen() {
     );
   }
 
-  if (error) {
+  if (error && !isReady) {
     return (
       <View style={styles.centered}>
         <View style={styles.errorCard}>
@@ -44,6 +45,13 @@ export default function HomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <AppNav title="Home" active="home" />
+
+      {error ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.loadingTitle}>Background sync failed</Text>
+          <Text style={styles.body}>{error.message}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.heroCard}>
         <View style={styles.heroActions}>
@@ -105,7 +113,20 @@ export default function HomeScreen() {
                     run.status === "completed" ? styles.statusPillCompleted : styles.statusPillActive
                   ]}
                 >
-                  <Text style={styles.statusPillText}>{run.status}</Text>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      run.status === "completed" ? styles.statusDotCompleted : styles.statusDotActive
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.statusPillText,
+                      run.status === "completed" ? styles.statusPillTextCompleted : styles.statusPillTextActive
+                    ]}
+                  >
+                    {run.status}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.cardMeta}>
@@ -124,14 +145,14 @@ function createStyles(theme: AppTheme) {
 const { colors, radius, spacing } = theme;
 return StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundWash,
     flexGrow: 1,
     gap: spacing.lg,
     padding: spacing.xl
   },
   centered: {
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundWash,
     flex: 1,
     justifyContent: "center",
     padding: spacing.xl
@@ -210,31 +231,43 @@ return StyleSheet.create({
     fontWeight: "700"
   },
   statsRow: {
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    borderWidth: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm
+    gap: spacing.sm,
+    padding: spacing.md
   },
   statCard: {
-    backgroundColor: colors.surfaceRaised,
+    alignItems: "center",
+    backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radius.lg,
     borderWidth: 1,
+    flexBasis: 132,
     flexGrow: 1,
     gap: spacing.xs,
-    minWidth: 96,
-    padding: spacing.lg
+    justifyContent: "center",
+    minHeight: 88,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm
   },
   statLabel: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0.8,
+    letterSpacing: 0.4,
+    lineHeight: 13,
+    textAlign: "center",
     textTransform: "uppercase"
   },
   statValue: {
     color: colors.text,
-    fontSize: 30,
-    fontWeight: "700"
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center"
   },
   sectionHeader: {
     gap: spacing.xs
@@ -282,21 +315,43 @@ return StyleSheet.create({
     fontSize: 14
   },
   statusPill: {
+    alignItems: "center",
     borderRadius: radius.pill,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs
   },
   statusPillActive: {
-    backgroundColor: colors.accentSoft
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent
   },
   statusPillCompleted: {
-    backgroundColor: "#dff1e4"
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.success
+  },
+  statusDot: {
+    borderRadius: radius.pill,
+    height: 8,
+    width: 8
+  },
+  statusDotActive: {
+    backgroundColor: colors.accent
+  },
+  statusDotCompleted: {
+    backgroundColor: colors.success
   },
   statusPillText: {
-    color: colors.text,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "capitalize"
+  },
+  statusPillTextActive: {
+    color: colors.primaryDark
+  },
+  statusPillTextCompleted: {
+    color: colors.success
   }
 });
 }

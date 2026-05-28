@@ -23,6 +23,7 @@ type AppearanceContextValue = {
   backgroundColor: BackgroundColor | null;
   mode: AppearanceMode;
   radiusScale: number;
+  reloadAppearance: () => Promise<void>;
   setAccentColor: (accentColor: AccentColor) => Promise<void>;
   setBackgroundColor: (backgroundColor: BackgroundColor | null) => Promise<void>;
   setMode: (mode: AppearanceMode) => Promise<void>;
@@ -50,35 +51,56 @@ const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 export function AppearanceProvider({ children }: PropsWithChildren) {
   const [appearance, setAppearance] = useState<AppearanceState>(defaultAppearance);
 
+  async function loadAppearance() {
+    const stored = await getSecureJson<AppearanceState>(APPEARANCE_KEY);
+    setAppearance({
+      mode: stored?.mode ?? defaultAppearance.mode,
+      accentColor:
+        typeof stored?.accentColor === "string"
+          ? stored.accentColor
+          : defaultAppearance.accentColor,
+      backgroundColor:
+        typeof stored?.backgroundColor === "string"
+          ? stored.backgroundColor
+          : defaultAppearance.backgroundColor,
+      radiusScale:
+        typeof stored?.radiusScale === "number"
+          ? clampRadiusScale(stored.radiusScale)
+          : defaultAppearance.radiusScale,
+      spacingScale:
+        typeof stored?.spacingScale === "number"
+          ? clampSpacingScale(stored.spacingScale)
+          : defaultAppearance.spacingScale
+    });
+  }
+
   useEffect(() => {
     let isMounted = true;
-
-    async function loadAppearance() {
-      const stored = await getSecureJson<AppearanceState>(APPEARANCE_KEY);
-      if (stored && isMounted) {
-        setAppearance({
-          mode: stored.mode ?? defaultAppearance.mode,
-          accentColor:
-            typeof stored.accentColor === "string"
-              ? stored.accentColor
-              : defaultAppearance.accentColor,
-          backgroundColor:
-            typeof stored.backgroundColor === "string"
-              ? stored.backgroundColor
-              : defaultAppearance.backgroundColor,
-          radiusScale:
-            typeof stored.radiusScale === "number"
-              ? clampRadiusScale(stored.radiusScale)
-              : defaultAppearance.radiusScale,
-          spacingScale:
-            typeof stored.spacingScale === "number"
-              ? clampSpacingScale(stored.spacingScale)
-              : defaultAppearance.spacingScale
-        });
+    void getSecureJson<AppearanceState>(APPEARANCE_KEY).then((stored) => {
+      if (!isMounted) {
+        return;
       }
-    }
 
-    void loadAppearance();
+      setAppearance({
+        mode: stored?.mode ?? defaultAppearance.mode,
+        accentColor:
+          typeof stored?.accentColor === "string"
+            ? stored.accentColor
+            : defaultAppearance.accentColor,
+        backgroundColor:
+          typeof stored?.backgroundColor === "string"
+            ? stored.backgroundColor
+            : defaultAppearance.backgroundColor,
+        radiusScale:
+          typeof stored?.radiusScale === "number"
+            ? clampRadiusScale(stored.radiusScale)
+            : defaultAppearance.radiusScale,
+        spacingScale:
+          typeof stored?.spacingScale === "number"
+            ? clampSpacingScale(stored.spacingScale)
+            : defaultAppearance.spacingScale
+      });
+    });
 
     return () => {
       isMounted = false;
@@ -96,6 +118,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       backgroundColor: appearance.backgroundColor,
       mode: appearance.mode,
       radiusScale: appearance.radiusScale,
+      reloadAppearance: loadAppearance,
       setAccentColor: async (accentColor: AccentColor) => {
         await persist({ ...appearance, accentColor });
       },
@@ -136,19 +159,34 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     }
 
     const backgroundColor = value.theme.colors.background;
+    const backgroundImage = [
+      `radial-gradient(circle at top left, ${value.theme.colors.accentSoft} 0%, transparent 34%)`,
+      `radial-gradient(circle at top right, ${value.theme.colors.backgroundAccent} 0%, transparent 38%)`,
+      `linear-gradient(180deg, ${value.theme.colors.backgroundAccent} 0%, ${backgroundColor} 58%, ${backgroundColor} 100%)`
+    ].join(", ");
     const root = document.documentElement;
     const body = document.body;
     const appRoot = document.getElementById("root");
     const expoRoot = document.querySelector("[data-expo-root]") as HTMLElement | null;
     const firstBodyChild = body.firstElementChild as HTMLElement | null;
     const previousRootBackground = root.style.backgroundColor;
+    const previousRootBackgroundImage = root.style.backgroundImage;
     const previousBodyBackground = body.style.backgroundColor;
+    const previousBodyBackgroundImage = body.style.backgroundImage;
+    const previousBodyBackgroundAttachment = body.style.backgroundAttachment;
+    const previousBodyBackgroundRepeat = body.style.backgroundRepeat;
+    const previousBodyBackgroundSize = body.style.backgroundSize;
     const previousAppRootBackground = appRoot?.style.backgroundColor ?? "";
     const previousExpoRootBackground = expoRoot?.style.backgroundColor ?? "";
     const previousFirstBodyChildBackground = firstBodyChild?.style.backgroundColor ?? "";
 
     root.style.backgroundColor = backgroundColor;
+    root.style.backgroundImage = backgroundImage;
     body.style.backgroundColor = backgroundColor;
+    body.style.backgroundImage = backgroundImage;
+    body.style.backgroundAttachment = "fixed";
+    body.style.backgroundRepeat = "no-repeat";
+    body.style.backgroundSize = "cover";
     if (appRoot) {
       appRoot.style.backgroundColor = backgroundColor;
     }
@@ -161,7 +199,12 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
 
     return () => {
       root.style.backgroundColor = previousRootBackground;
+      root.style.backgroundImage = previousRootBackgroundImage;
       body.style.backgroundColor = previousBodyBackground;
+      body.style.backgroundImage = previousBodyBackgroundImage;
+      body.style.backgroundAttachment = previousBodyBackgroundAttachment;
+      body.style.backgroundRepeat = previousBodyBackgroundRepeat;
+      body.style.backgroundSize = previousBodyBackgroundSize;
       if (appRoot) {
         appRoot.style.backgroundColor = previousAppRootBackground;
       }
@@ -172,7 +215,11 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
         firstBodyChild.style.backgroundColor = previousFirstBodyChildBackground;
       }
     };
-  }, [value.theme.colors.background]);
+  }, [
+    value.theme.colors.accentSoft,
+    value.theme.colors.background,
+    value.theme.colors.backgroundAccent
+  ]);
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
 }

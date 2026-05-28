@@ -1,12 +1,9 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
@@ -15,7 +12,9 @@ import * as Sharing from "expo-sharing";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
+import { Modal, ScrollView, TextInput } from "../src/components/SafeNative";
 import { useColumnVisibility } from "../src/hooks/useColumnVisibility";
+import { useSavedViews, type SavedViewSortState } from "../src/hooks/useSavedViews";
 import { useOrders, type EnrichedOrder } from "../src/hooks/useOrders";
 import { useAppTheme } from "../src/providers/AppearanceProvider";
 import { useServices } from "../src/providers/AppProviders";
@@ -27,35 +26,90 @@ import type { AppTheme } from "../src/theme";
 import { nowIso } from "../src/utils";
 
 type OrderColumnKey =
-  | "order"
-  | "store"
-  | "platform"
-  | "buyer"
-  | "address"
-  | "channels"
+  | "id"
+  | "externalOrderId"
+  | "integrationConnectionId"
+  | "integrationConnectionName"
+  | "integrationKey"
+  | "integrationName"
+  | "orderNumber"
+  | "buyerName"
+  | "buyerEmail"
+  | "shipName"
+  | "address1"
+  | "address2"
+  | "city"
+  | "state"
+  | "postalCode"
+  | "phone"
+  | "availableChannels"
   | "created"
-  | "fulfillmentId";
+  | "linkedFulfillmentId";
+
+const ORDER_COLUMN_KEYS: OrderColumnKey[] = [
+  "id",
+  "externalOrderId",
+  "integrationConnectionId",
+  "integrationConnectionName",
+  "integrationKey",
+  "integrationName",
+  "orderNumber",
+  "buyerName",
+  "buyerEmail",
+  "shipName",
+  "address1",
+  "address2",
+  "city",
+  "state",
+  "postalCode",
+  "phone",
+  "availableChannels",
+  "created",
+  "linkedFulfillmentId"
+];
 
 const ORDER_COLUMN_LABELS: Record<OrderColumnKey, string> = {
-  order: "Order ID",
-  store: "Store",
-  platform: "Platform",
-  buyer: "Buyer",
-  address: "Ship To",
-  channels: "Channels",
+  id: "Order ID",
+  externalOrderId: "External Order ID",
+  integrationConnectionId: "Store ID",
+  integrationConnectionName: "Store Name",
+  integrationKey: "Integration Key",
+  integrationName: "Platform",
+  orderNumber: "Order Number",
+  buyerName: "Buyer Name",
+  buyerEmail: "Buyer Email",
+  shipName: "Ship Name",
+  address1: "Address 1",
+  address2: "Address 2",
+  city: "City",
+  state: "State",
+  postalCode: "Postal Code",
+  phone: "Phone",
+  availableChannels: "Available Channels",
   created: "Created",
-  fulfillmentId: "Fulfillment ID"
+  linkedFulfillmentId: "Fulfillment ID"
 };
 
 const DEFAULT_ORDER_COLUMN_VISIBILITY: Record<OrderColumnKey, boolean> = {
-  order: true,
-  store: true,
-  platform: true,
-  buyer: true,
-  address: true,
-  channels: true,
+  id: true,
+  externalOrderId: true,
+  integrationConnectionId: true,
+  integrationConnectionName: true,
+  integrationKey: true,
+  integrationName: true,
+  orderNumber: true,
+  buyerName: true,
+  buyerEmail: true,
+  shipName: true,
+  address1: true,
+  address2: true,
+  city: true,
+  state: true,
+  postalCode: true,
+  phone: true,
+  availableChannels: true,
   created: true,
-  fulfillmentId: true
+  linkedFulfillmentId: true
 };
 
 type ManualOrderDraft = {
@@ -69,6 +123,73 @@ type ManualOrderDraft = {
   shippingAddress: Address;
   availableChannels: MessageChannel[];
 };
+
+type OrderFilters = {
+  id: string;
+  externalOrderId: string;
+  integrationConnectionId: string;
+  integrationConnectionName: string;
+  integrationKey: string;
+  integrationName: string;
+  orderNumber: string;
+  buyerName: string;
+  buyerEmail: string;
+  shipName: string;
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  phone: string;
+  availableChannels: string;
+  created: string;
+  linkedFulfillmentId: string;
+};
+
+const DEFAULT_ORDER_FILTERS: OrderFilters = {
+  id: "",
+  externalOrderId: "",
+  integrationConnectionId: "",
+  integrationConnectionName: "",
+  integrationKey: "",
+  integrationName: "",
+  orderNumber: "",
+  buyerName: "",
+  buyerEmail: "",
+  shipName: "",
+  address1: "",
+  address2: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  phone: "",
+  availableChannels: "",
+  created: "",
+  linkedFulfillmentId: ""
+};
+
+type OrderSortKey =
+  | "id"
+  | "externalOrderId"
+  | "integrationConnectionId"
+  | "integrationConnectionName"
+  | "integrationKey"
+  | "integrationName"
+  | "orderNumber"
+  | "buyerName"
+  | "buyerEmail"
+  | "shipName"
+  | "address1"
+  | "address2"
+  | "city"
+  | "state"
+  | "postalCode"
+  | "phone"
+  | "availableChannels"
+  | "created"
+  | "linkedFulfillmentId";
+
+type OrderSortState = SavedViewSortState<OrderSortKey>;
 
 const DEFAULT_CHANNELS: MessageChannel[] = ["email", "manual"];
 
@@ -93,49 +214,53 @@ function escapeCsvValue(value: string) {
   return `"${normalized}"`;
 }
 
-function buildOrderExportCsv(orders: EnrichedOrder[], visibleColumns: OrderColumnKey[]) {
-  const header = visibleColumns.map((column) => {
-    switch (column) {
-      case "order":
-        return "Order ID";
-      case "store":
-        return "Store";
-      case "platform":
-        return "Platform";
-      case "buyer":
-        return "Buyer";
-      case "address":
-        return "Ship To";
-      case "channels":
-        return "Channels";
-      case "created":
-        return "Created";
-      case "fulfillmentId":
-        return "Fulfillment ID";
-    }
-  });
+function getOrderColumnValue(order: EnrichedOrder, column: OrderColumnKey) {
+  switch (column) {
+    case "id":
+      return order.id;
+    case "externalOrderId":
+      return order.externalOrderId;
+    case "integrationConnectionId":
+      return order.integrationConnectionId ?? "";
+    case "integrationConnectionName":
+      return order.integrationConnectionName ?? "";
+    case "integrationKey":
+      return order.integrationKey;
+    case "integrationName":
+      return order.integrationName;
+    case "orderNumber":
+      return order.orderNumber;
+    case "buyerName":
+      return order.buyerName;
+    case "buyerEmail":
+      return order.buyerEmail ?? "";
+    case "shipName":
+      return order.shippingAddress.name;
+    case "address1":
+      return order.shippingAddress.address1;
+    case "address2":
+      return order.shippingAddress.address2 ?? "";
+    case "city":
+      return order.shippingAddress.city;
+    case "state":
+      return order.shippingAddress.state;
+    case "postalCode":
+      return order.shippingAddress.postalCode;
+    case "phone":
+      return order.shippingAddress.phone ?? "";
+    case "availableChannels":
+      return order.availableChannels.join(", ");
+    case "created":
+      return order.createdAt;
+    case "linkedFulfillmentId":
+      return order.linkedFulfillmentId ?? "";
+  }
+}
 
+function buildOrderExportCsv(orders: EnrichedOrder[], visibleColumns: OrderColumnKey[]) {
+  const header = visibleColumns.map((column) => ORDER_COLUMN_LABELS[column]);
   const rows = orders.map((order) =>
-    visibleColumns.map((column) => {
-      switch (column) {
-        case "order":
-          return order.id;
-        case "store":
-          return order.integrationConnectionName ?? "";
-        case "platform":
-          return order.integrationName;
-        case "buyer":
-          return `${order.buyerName}${order.buyerEmail ? ` (${order.buyerEmail})` : ""}`;
-        case "address":
-          return formatAddress(order);
-        case "channels":
-          return order.availableChannels.join(", ");
-        case "created":
-          return order.createdAt;
-        case "fulfillmentId":
-          return order.linkedFulfillmentId ?? "";
-      }
-    })
+    visibleColumns.map((column) => getOrderColumnValue(order, column))
   );
 
   return [header, ...rows]
@@ -176,41 +301,32 @@ export default function OrdersScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncMenuOpen, setIsSyncMenuOpen] = useState(false);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
+  const [isViewsMenuOpen, setIsViewsMenuOpen] = useState(false);
+  const [isSaveViewOpen, setIsSaveViewOpen] = useState(false);
   const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
   const [isSavingManualOrder, setIsSavingManualOrder] = useState(false);
   const [isImportingLabel, setIsImportingLabel] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [pendingViewName, setPendingViewName] = useState("");
   const [connections, setConnections] = useState<IntegrationConnection[]>([]);
   const [manualOrderDraft, setManualOrderDraft] = useState<ManualOrderDraft>(createBlankManualOrderDraft());
-  const [filters, setFilters] = useState({
-    store: "",
-    platform: "",
-    order: "",
-    buyer: "",
-    address: "",
-    channels: "",
-    created: ""
-  });
-  const [sortState, setSortState] = useState<{
-    key:
-      | "order"
-      | "store"
-      | "platform"
-      | "buyer"
-      | "address"
-      | "channels"
-      | "created"
-      | "fulfillmentId"
-      | null;
-    direction: "asc" | "desc" | null;
-  }>({
+  const [filters, setFilters] = useState<OrderFilters>(DEFAULT_ORDER_FILTERS);
+  const [sortState, setSortState] = useState<OrderSortState>({
     key: null,
     direction: null
   });
-  const { visibility, visibleColumnKeys, toggleColumn } = useColumnVisibility<OrderColumnKey>(
+  const { visibility, visibleColumnKeys, setVisibility, toggleColumn } = useColumnVisibility<OrderColumnKey>(
     "orders-column-visibility",
     DEFAULT_ORDER_COLUMN_VISIBILITY
   );
+  const { views: savedViews, saveView, deleteView } = useSavedViews<
+    OrderFilters,
+    OrderColumnKey,
+    OrderSortKey
+  >("orders-saved-views", "orders");
+  const activeSavedView = savedViews.find((view) => view.id === activeViewId);
+  const viewsButtonLabel = `Views: ${activeSavedView?.name ?? "Custom"} ${isViewsMenuOpen ? "↑" : "↓"}`;
 
   const existingBuyerOptions = Array.from(
     new Map(
@@ -273,23 +389,21 @@ export default function OrdersScreen() {
     };
   }, [integrationAuthService]);
 
-  const filteredOrders = orders.filter((order) => {
-    const createdLabel = new Date(order.createdAt).toLocaleDateString();
-    const addressText = formatAddress(order).toLowerCase();
-    const channelsText = order.availableChannels.join(", ").toLowerCase();
-    const buyerText = `${order.buyerName} ${order.buyerEmail ?? ""}`.toLowerCase();
-    const storeText = (order.integrationConnectionName ?? "").toLowerCase();
+  const filteredOrders = orders.filter((order) =>
+    ORDER_COLUMN_KEYS.every((column) => {
+      const filterValue = filters[column].trim().toLowerCase();
+      if (!filterValue) {
+        return true;
+      }
 
-    return (
-      storeText.includes(filters.store.trim().toLowerCase()) &&
-      order.integrationName.toLowerCase().includes(filters.platform.trim().toLowerCase()) &&
-      order.orderNumber.toLowerCase().includes(filters.order.trim().toLowerCase()) &&
-      buyerText.includes(filters.buyer.trim().toLowerCase()) &&
-      addressText.includes(filters.address.trim().toLowerCase()) &&
-      channelsText.includes(filters.channels.trim().toLowerCase()) &&
-      createdLabel.toLowerCase().includes(filters.created.trim().toLowerCase())
-    );
-  });
+      if (column === "created") {
+        return new Date(order.createdAt).toLocaleString().toLowerCase().includes(filterValue);
+      }
+
+      return String(getOrderColumnValue(order, column)).toLowerCase().includes(filterValue);
+    })
+  );
+  const filteredPlatformCount = new Set(filteredOrders.map((order) => order.integrationKey)).size;
 
   const sortedOrders = [...filteredOrders].sort((left, right) => {
     if (!sortState.key || !sortState.direction) {
@@ -298,43 +412,29 @@ export default function OrdersScreen() {
 
     const directionFactor = sortState.direction === "asc" ? 1 : -1;
 
-    switch (sortState.key) {
-      case "order":
-        return (left.id - right.id) * directionFactor;
-      case "store":
-        return (left.integrationConnectionName ?? "").localeCompare(
-          right.integrationConnectionName ?? ""
-        ) * directionFactor;
-      case "platform":
-        return left.integrationName.localeCompare(right.integrationName) * directionFactor;
-      case "buyer":
-        return left.buyerName.localeCompare(right.buyerName) * directionFactor;
-      case "address":
-        return formatAddress(left).localeCompare(formatAddress(right)) * directionFactor;
-      case "channels":
-        return left.availableChannels.join(", ").localeCompare(
-          right.availableChannels.join(", ")
-        ) * directionFactor;
-      case "created":
-        return (new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()) * directionFactor;
-      case "fulfillmentId":
-        return ((left.linkedFulfillmentId ?? -1) - (right.linkedFulfillmentId ?? -1)) * directionFactor;
-      default:
-        return 0;
+    if (sortState.key === "created") {
+      return (new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()) * directionFactor;
     }
+
+    if (sortState.key === "id") {
+      return (left.id - right.id) * directionFactor;
+    }
+
+    if (sortState.key === "integrationConnectionId") {
+      return ((left.integrationConnectionId ?? -1) - (right.integrationConnectionId ?? -1)) * directionFactor;
+    }
+
+    if (sortState.key === "linkedFulfillmentId") {
+      return ((left.linkedFulfillmentId ?? -1) - (right.linkedFulfillmentId ?? -1)) * directionFactor;
+    }
+
+    return String(getOrderColumnValue(left, sortState.key)).localeCompare(
+      String(getOrderColumnValue(right, sortState.key))
+    ) * directionFactor;
   });
 
-  function toggleSort(
-    key:
-      | "order"
-      | "store"
-      | "platform"
-      | "buyer"
-      | "address"
-      | "channels"
-      | "created"
-      | "fulfillmentId"
-  ) {
+  function toggleSort(key: OrderSortKey) {
+    setActiveViewId(null);
     setSortState((current) => {
       if (current.key !== key) {
         return { key, direction: "asc" };
@@ -352,17 +452,17 @@ export default function OrdersScreen() {
     });
   }
 
-  function getSortArrow(
-    key:
-      | "order"
-      | "store"
-      | "platform"
-      | "buyer"
-      | "address"
-      | "channels"
-      | "created"
-      | "fulfillmentId"
-  ) {
+  function updateFilter<Key extends keyof OrderFilters>(key: Key, value: OrderFilters[Key]) {
+    setActiveViewId(null);
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  async function handleToggleColumn(columnKey: OrderColumnKey) {
+    setActiveViewId(null);
+    await toggleColumn(columnKey);
+  }
+
+  function getSortArrow(key: OrderSortKey) {
     if (sortState.key !== key || !sortState.direction) {
       return "";
     }
@@ -603,70 +703,218 @@ export default function OrdersScreen() {
     }
   }
 
+  async function applySavedView(viewId: string) {
+    const view = savedViews.find((entry) => entry.id === viewId);
+    if (!view) {
+      return;
+    }
+
+    setFilters(view.filters);
+    setSortState(view.sortState);
+    await setVisibility(view.visibility);
+    setActiveViewId(view.id);
+    setIsViewsMenuOpen(false);
+    showToast(`Applied view "${view.name}".`, { variant: "success" });
+  }
+
+  async function handleDeleteSavedView(viewId: string) {
+    await deleteView(viewId);
+    setActiveViewId((current) => (current === viewId ? null : current));
+    setIsViewsMenuOpen(false);
+    showToast("Saved view deleted.", { variant: "success" });
+  }
+
+  async function handleClearFilters() {
+    setActiveViewId(null);
+    setFilters(DEFAULT_ORDER_FILTERS);
+    setSortState({
+      key: null,
+      direction: null
+    });
+    await setVisibility(DEFAULT_ORDER_COLUMN_VISIBILITY);
+    setIsViewsMenuOpen(false);
+  }
+
+  async function handleSaveView() {
+    try {
+      await saveView(pendingViewName, filters, visibility, sortState);
+      setPendingViewName("");
+      setIsSaveViewOpen(false);
+      showToast("Saved view updated.", { variant: "success" });
+    } catch (nextError) {
+      showToast((nextError as Error).message, { variant: "error", durationMs: 4200 });
+    }
+  }
+
+  function getOrderColumnCellStyle(column: OrderColumnKey) {
+    switch (column) {
+      case "id":
+      case "integrationConnectionId":
+      case "state":
+      case "linkedFulfillmentId":
+        return styles.cellCompact;
+      case "created":
+        return styles.cellDate;
+      case "address1":
+      case "address2":
+      case "externalOrderId":
+        return styles.cellWide;
+      case "availableChannels":
+      case "integrationConnectionName":
+      case "integrationName":
+      case "integrationKey":
+      case "orderNumber":
+      case "buyerName":
+      case "buyerEmail":
+      case "shipName":
+        return styles.cellMedium;
+      case "city":
+      case "postalCode":
+      case "phone":
+        return styles.cellStandard;
+    }
+  }
+
+  function renderOrderCell(order: EnrichedOrder, column: OrderColumnKey) {
+    if (column === "id") {
+      return (
+        <Pressable
+          onPress={() => router.push(`/orders/${order.id}`)}
+          style={styles.linkButton}
+        >
+          <Text style={styles.linkButtonText}>{order.id}</Text>
+        </Pressable>
+      );
+    }
+
+    if (column === "linkedFulfillmentId") {
+      return order.linkedFulfillmentId ? (
+        <Pressable
+          onPress={() => router.push(`/runs/${order.linkedFulfillmentId}`)}
+          style={styles.linkButton}
+        >
+          <Text style={styles.linkButtonText}>Open #{order.linkedFulfillmentId}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.cellSecondaryText}>No workflow</Text>
+      );
+    }
+
+    const value = getOrderColumnValue(order, column);
+    const displayValue =
+      column === "created"
+        ? new Date(order.createdAt).toLocaleString()
+        : String(value || "—");
+
+    return <Text style={styles.cellPrimaryText}>{displayValue}</Text>;
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <AppNav title="Orders" active="orders" />
 
       <View style={styles.filterActionsRow}>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryLabel}>Filtered</Text>
+            <Text style={styles.summaryValue}>{filteredOrders.length}</Text>
+          </View>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryLabel}>Orders</Text>
+            <Text style={styles.summaryValue}>{orders.length}</Text>
+          </View>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryLabel}>Platforms</Text>
+            <Text style={styles.summaryValue}>{filteredPlatformCount}</Text>
+          </View>
+        </View>
+
         <View style={styles.filterButtons}>
           <Pressable
             onPress={() => setIsManualOrderOpen(true)}
-            style={styles.syncButton}
+            style={[styles.syncButton, styles.actionButton]}
           >
             <Text style={styles.syncButtonText}>Add Order</Text>
           </Pressable>
           <Pressable
             onPress={() => setIsSyncMenuOpen(true)}
-            style={[styles.syncButton, isSyncing ? styles.buttonDisabled : null]}
+            style={[styles.syncButton, styles.actionButton, isSyncing ? styles.buttonDisabled : null]}
             disabled={isSyncing}
           >
             <Text style={styles.syncButtonText}>{isSyncing ? "Syncing..." : "Sync Orders"}</Text>
           </Pressable>
           <Pressable
             onPress={() => void handleExport()}
-            style={[styles.exportButton, isExporting ? styles.buttonDisabled : null]}
+            style={[styles.exportButton, styles.actionButton, isExporting ? styles.buttonDisabled : null]}
             disabled={isExporting}
           >
             <Text style={styles.exportButtonText}>{isExporting ? "Exporting..." : "Export"}</Text>
           </Pressable>
           <Pressable
             onPress={() => setIsCustomizeOpen(true)}
-            style={styles.clearButton}
+            style={[styles.clearButton, styles.actionButton]}
           >
             <Text style={styles.clearButtonText}>Columns</Text>
           </Pressable>
           <Pressable
-            onPress={() =>
-              setFilters({
-                store: "",
-                platform: "",
-                order: "",
-                buyer: "",
-                address: "",
-                channels: "",
-                created: ""
-              })
-            }
-            style={styles.clearButton}
+            onPress={() => {
+              setPendingViewName("");
+              setIsSaveViewOpen(true);
+            }}
+            style={[styles.clearButton, styles.actionButton]}
+          >
+            <Text style={styles.clearButtonText}>Save View</Text>
+          </Pressable>
+          <View style={[styles.viewsMenuWrap, styles.actionButtonWrap]}>
+            <Pressable
+              onPress={() => setIsViewsMenuOpen((current) => !current)}
+              style={[
+                styles.clearButton,
+                styles.actionButton,
+                isViewsMenuOpen ? styles.viewsMenuButtonActive : null
+              ]}
+            >
+              <Text style={styles.clearButtonText}>{viewsButtonLabel}</Text>
+            </Pressable>
+            {isViewsMenuOpen ? (
+              <View style={styles.viewsDropdown}>
+                {savedViews.length === 0 ? (
+                  <Text style={styles.viewsDropdownEmpty}>No saved order views yet.</Text>
+                ) : (
+                  savedViews.map((view) => (
+                    <View key={view.id} style={styles.savedViewCard}>
+                      <View style={styles.savedViewHeader}>
+                        <Text style={styles.syncMenuOptionTitle}>{view.name}</Text>
+                        <Text style={styles.savedViewMeta}>
+                          {Object.values(view.visibility).filter(Boolean).length} columns
+                        </Text>
+                      </View>
+                      <Text style={styles.syncMenuOptionMeta}>
+                        Updated {new Date(view.updatedAt).toLocaleString()}
+                      </Text>
+                      <View style={styles.optionRow}>
+                        <Pressable onPress={() => void applySavedView(view.id)} style={styles.openButton}>
+                          <Text style={styles.openButtonText}>Apply</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => void handleDeleteSavedView(view.id)}
+                          style={styles.deleteButton}
+                        >
+                          <Text style={styles.deleteButtonText}>Delete</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            ) : null}
+          </View>
+          <Pressable
+            onPress={() => void handleClearFilters()}
+            style={[styles.clearButton, styles.actionButton]}
           >
             <Text style={styles.clearButtonText}>Clear Filters</Text>
           </Pressable>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Filtered</Text>
-            <Text style={styles.statValue}>{filteredOrders.length}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Orders</Text>
-            <Text style={styles.statValue}>{orders.length}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Platforms</Text>
-            <Text style={styles.statValue}>
-              {new Set(filteredOrders.map((order) => order.integrationKey)).size}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -679,136 +927,34 @@ export default function OrdersScreen() {
         >
           <View style={styles.tableInner}>
             <View style={[styles.tableRow, styles.tableHeaderRow]}>
-              {visibility.order ? (
-                <Pressable
-                  onPress={() => toggleSort("order")}
-                  style={[styles.tableCell, styles.cellOrder, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Order ID{getSortArrow("order")}</Text>
-                </Pressable>
-              ) : null}
-              {visibility.store ? (
-                <Pressable
-                  onPress={() => toggleSort("store")}
-                  style={[styles.tableCell, styles.cellStore, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Store{getSortArrow("store")}</Text>
-                </Pressable>
-              ) : null}
-              {visibility.platform ? (
-                <Pressable
-                  onPress={() => toggleSort("platform")}
-                  style={[styles.tableCell, styles.cellPlatform, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Platform{getSortArrow("platform")}</Text>
-                </Pressable>
-              ) : null}
-              {visibility.buyer ? (
-                <Pressable
-                  onPress={() => toggleSort("buyer")}
-                  style={[styles.tableCell, styles.cellBuyer, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Buyer{getSortArrow("buyer")}</Text>
-                </Pressable>
-              ) : null}
-              {visibility.address ? (
-                <Pressable
-                  onPress={() => toggleSort("address")}
-                  style={[styles.tableCell, styles.cellAddress, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Ship To{getSortArrow("address")}</Text>
-                </Pressable>
-              ) : null}
-              {visibility.channels ? (
-                <Pressable
-                  onPress={() => toggleSort("channels")}
-                  style={[styles.tableCell, styles.cellChannels, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Channels{getSortArrow("channels")}</Text>
-                </Pressable>
-              ) : null}
-              {visibility.created ? (
-                <Pressable
-                  onPress={() => toggleSort("created")}
-                  style={[styles.tableCell, styles.cellDate, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Created{getSortArrow("created")}</Text>
-                </Pressable>
-              ) : null}
-              {visibility.fulfillmentId ? (
-                <Pressable
-                  onPress={() => toggleSort("fulfillmentId")}
-                  style={[styles.tableCell, styles.cellWorkflow, styles.tableHeaderCell]}
-                >
-                  <Text style={styles.tableHeaderText}>Fulfillment ID{getSortArrow("fulfillmentId")}</Text>
-                </Pressable>
-              ) : null}
+              {ORDER_COLUMN_KEYS.map((column) =>
+                visibility[column] ? (
+                  <Pressable
+                    key={`header:${column}`}
+                    onPress={() => toggleSort(column)}
+                    style={[styles.tableCell, getOrderColumnCellStyle(column), styles.tableHeaderCell]}
+                  >
+                    <Text style={styles.tableHeaderText}>
+                      {ORDER_COLUMN_LABELS[column]}{getSortArrow(column)}
+                    </Text>
+                  </Pressable>
+                ) : null
+              )}
             </View>
             <View style={[styles.tableRow, styles.tableFilterRow]}>
-              {visibility.order ? <View style={[styles.tableCell, styles.cellOrder]}>
-                <TextInput
-                  onChangeText={(value) => setFilters((current) => ({ ...current, order: value }))}
-                  placeholder="Filter"
-                  placeholderTextColor={colors.muted}
-                  style={styles.filterInput}
-                  value={filters.order}
-                />
-              </View> : null}
-              {visibility.store ? <View style={[styles.tableCell, styles.cellStore]}>
-                <TextInput
-                  onChangeText={(value) => setFilters((current) => ({ ...current, store: value }))}
-                  placeholder="Filter"
-                  placeholderTextColor={colors.muted}
-                  style={styles.filterInput}
-                  value={filters.store}
-                />
-              </View> : null}
-              {visibility.platform ? <View style={[styles.tableCell, styles.cellPlatform]}>
-                <TextInput
-                  onChangeText={(value) => setFilters((current) => ({ ...current, platform: value }))}
-                  placeholder="Filter"
-                  placeholderTextColor={colors.muted}
-                  style={styles.filterInput}
-                  value={filters.platform}
-                />
-              </View> : null}
-              {visibility.buyer ? <View style={[styles.tableCell, styles.cellBuyer]}>
-                <TextInput
-                  onChangeText={(value) => setFilters((current) => ({ ...current, buyer: value }))}
-                  placeholder="Filter"
-                  placeholderTextColor={colors.muted}
-                  style={styles.filterInput}
-                  value={filters.buyer}
-                />
-              </View> : null}
-              {visibility.address ? <View style={[styles.tableCell, styles.cellAddress]}>
-                <TextInput
-                  onChangeText={(value) => setFilters((current) => ({ ...current, address: value }))}
-                  placeholder="Filter"
-                  placeholderTextColor={colors.muted}
-                  style={styles.filterInput}
-                  value={filters.address}
-                />
-              </View> : null}
-              {visibility.channels ? <View style={[styles.tableCell, styles.cellChannels]}>
-                <TextInput
-                  onChangeText={(value) => setFilters((current) => ({ ...current, channels: value }))}
-                  placeholder="Filter"
-                  placeholderTextColor={colors.muted}
-                  style={styles.filterInput}
-                  value={filters.channels}
-                />
-              </View> : null}
-              {visibility.created ? <View style={[styles.tableCell, styles.cellDate]}>
-                <TextInput
-                  onChangeText={(value) => setFilters((current) => ({ ...current, created: value }))}
-                  placeholder="MM/DD/YYYY"
-                  placeholderTextColor={colors.muted}
-                  style={styles.filterInput}
-                  value={filters.created}
-                />
-              </View> : null}
-              {visibility.fulfillmentId ? <View style={[styles.tableCell, styles.cellWorkflow]} /> : null}
+              {ORDER_COLUMN_KEYS.map((column) =>
+                visibility[column] ? (
+                  <View key={`filter:${column}`} style={[styles.tableCell, getOrderColumnCellStyle(column)]}>
+                    <TextInput
+                      onChangeText={(value) => updateFilter(column, value)}
+                      placeholder={column === "created" ? "MM/DD/YYYY" : "Filter"}
+                      placeholderTextColor={colors.muted}
+                      style={styles.filterInput}
+                      value={filters[column]}
+                    />
+                  </View>
+                ) : null
+              )}
             </View>
 
             {sortedOrders.length === 0 && !isLoading ? (
@@ -829,37 +975,13 @@ export default function OrdersScreen() {
                 key={order.id}
                 style={[styles.tableRow, index % 2 === 0 ? styles.tableRowAlt : null]}
               >
-                {visibility.order ? <View style={[styles.tableCell, styles.cellOrder]}>
-                  <Text style={styles.cellPrimaryText}>{order.id}</Text>
-                  <Text style={styles.cellSecondaryText}>{order.orderNumber}</Text>
-                </View> : null}
-                {visibility.store ? <Text style={[styles.tableCell, styles.cellStore]}>
-                  {order.integrationConnectionName ?? "Unlabeled Store"}
-                </Text> : null}
-                {visibility.platform ? <Text style={[styles.tableCell, styles.cellPlatform]}>{order.integrationName}</Text> : null}
-                {visibility.buyer ? <View style={[styles.tableCell, styles.cellBuyer]}>
-                  <Text style={styles.cellPrimaryText}>{order.buyerName}</Text>
-                  <Text style={styles.cellSecondaryText}>{order.buyerEmail ?? "No email"}</Text>
-                </View> : null}
-                {visibility.address ? <Text style={[styles.tableCell, styles.cellAddress]}>{formatAddress(order)}</Text> : null}
-                {visibility.channels ? <Text style={[styles.tableCell, styles.cellChannels]}>
-                  {order.availableChannels.join(", ")}
-                </Text> : null}
-                {visibility.created ? <Text style={[styles.tableCell, styles.cellDate]}>
-                  {new Date(order.createdAt).toLocaleDateString()}
-                </Text> : null}
-                {visibility.fulfillmentId ? <View style={[styles.tableCell, styles.cellWorkflow]}>
-                  {order.linkedFulfillmentId ? (
-                    <Pressable
-                      onPress={() => router.push(`/runs/${order.linkedFulfillmentId}`)}
-                      style={styles.linkButton}
-                    >
-                      <Text style={styles.linkButtonText}>Open #{order.linkedFulfillmentId}</Text>
-                    </Pressable>
-                  ) : (
-                    <Text style={styles.cellSecondaryText}>No workflow</Text>
-                  )}
-                </View> : null}
+                {ORDER_COLUMN_KEYS.map((column) =>
+                  visibility[column] ? (
+                    <View key={`${order.id}:${column}`} style={[styles.tableCell, getOrderColumnCellStyle(column)]}>
+                      {renderOrderCell(order, column)}
+                    </View>
+                  ) : null
+                )}
               </View>
             ))}
           </View>
@@ -1221,6 +1343,37 @@ export default function OrdersScreen() {
       <Modal
         animationType="fade"
         transparent
+        visible={isSaveViewOpen}
+        onRequestClose={() => setIsSaveViewOpen(false)}
+      >
+        <View style={styles.modalScrim}>
+          <View style={styles.modalCard}>
+            <Text style={styles.errorTitle}>Save View</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>View Name</Text>
+              <TextInput
+                value={pendingViewName}
+                onChangeText={setPendingViewName}
+                placeholder="Example: Etsy Follow-up"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable onPress={() => setIsSaveViewOpen(false)} style={styles.openButton}>
+                <Text style={styles.openButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={() => void handleSaveView()} style={styles.syncButton}>
+                <Text style={styles.syncButtonText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
         visible={isCustomizeOpen}
         onRequestClose={() => setIsCustomizeOpen(false)}
       >
@@ -1233,7 +1386,7 @@ export default function OrdersScreen() {
               ).map((columnKey) => (
                 <Pressable
                   key={`orders-column:${columnKey}`}
-                  onPress={() => void toggleColumn(columnKey)}
+                  onPress={() => void handleToggleColumn(columnKey)}
                   style={[styles.openButton, visibility[columnKey] ? styles.columnOptionActive : null]}
                 >
                   <Text style={styles.openButtonText}>
@@ -1256,7 +1409,7 @@ function createStyles(theme: AppTheme) {
   const { colors, radius, spacing } = theme;
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl
@@ -1266,9 +1419,9 @@ function createStyles(theme: AppTheme) {
       backgroundColor: colors.accent,
       borderRadius: radius.pill,
       justifyContent: "center",
-      minHeight: 32,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs + 2
+      minHeight: 30,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.xs + 1
     },
     syncButtonDisabled: {
       opacity: 0.65
@@ -1329,6 +1482,16 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 0.4,
       textTransform: "uppercase"
     },
+    input: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      color: colors.text,
+      fontSize: 15,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md
+    },
     optionRow: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -1388,6 +1551,25 @@ function createStyles(theme: AppTheme) {
       fontSize: 14,
       lineHeight: 20
     },
+    savedViewCard: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      gap: spacing.sm,
+      padding: spacing.md
+    },
+    savedViewHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.sm,
+      justifyContent: "space-between"
+    },
+    savedViewMeta: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "700"
+    },
     errorCard: {
       backgroundColor: colors.dangerSoft,
       borderColor: colors.danger,
@@ -1407,24 +1589,51 @@ function createStyles(theme: AppTheme) {
       lineHeight: 20
     },
     filterActionsRow: {
-      alignItems: "flex-start",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.xs,
-      justifyContent: "space-between"
+      gap: spacing.sm,
+      width: "100%",
+      zIndex: 30
     },
     filterButtons: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: spacing.sm
+      gap: spacing.sm,
+      width: "100%",
+      zIndex: 40
     },
-    statsRow: {
-      alignItems: "stretch",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.xs,
-      justifyContent: "flex-end",
-      marginLeft: "auto"
+    actionButton: {
+      alignSelf: "flex-start"
+    },
+    actionButtonWrap: {
+      alignSelf: "flex-start"
+    },
+    viewsMenuWrap: {
+      position: "relative",
+      zIndex: 40
+    },
+    viewsMenuButtonActive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong
+    },
+    viewsDropdown: {
+      backgroundColor: colors.surfaceRaised,
+      borderColor: colors.borderStrong,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      elevation: 12,
+      gap: spacing.sm,
+      left: 0,
+      marginTop: spacing.xs,
+      minWidth: 280,
+      padding: spacing.sm,
+      position: "absolute",
+      top: 32,
+      zIndex: 50
+    },
+    viewsDropdownEmpty: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
+      padding: spacing.sm
     },
     buttonDisabled: {
       opacity: 0.65
@@ -1434,9 +1643,9 @@ function createStyles(theme: AppTheme) {
       backgroundColor: colors.accent,
       borderRadius: radius.pill,
       justifyContent: "center",
-      minHeight: 32,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs + 2
+      minHeight: 30,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.xs + 1
     },
     exportButtonText: {
       color: colors.surfaceRaised,
@@ -1452,9 +1661,9 @@ function createStyles(theme: AppTheme) {
       borderRadius: radius.pill,
       borderWidth: 1,
       justifyContent: "center",
-      minHeight: 32,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs + 2
+      minHeight: 30,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.xs + 1
     },
     clearButtonText: {
       color: colors.text,
@@ -1463,26 +1672,47 @@ function createStyles(theme: AppTheme) {
       lineHeight: 13,
       textAlignVertical: "center"
     },
-    statCard: {
+    summaryCard: {
       backgroundColor: colors.surfaceRaised,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      elevation: 0,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      width: "100%",
+      zIndex: 0
+    },
+    summaryMetric: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
       borderColor: colors.border,
       borderRadius: radius.lg,
       borderWidth: 1,
-      gap: 2,
-      minWidth: 92,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: spacing.xs + 2
+      flexBasis: 132,
+      flexGrow: 1,
+      gap: spacing.xs,
+      justifyContent: "center",
+      minHeight: 88,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm
     },
-    statLabel: {
+    summaryLabel: {
       color: colors.muted,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: "700",
-      letterSpacing: 0.8,
+      letterSpacing: 0.4,
+      lineHeight: 13,
+      textAlign: "center",
       textTransform: "uppercase"
     },
-    statValue: {
+    summaryValue: {
+      textAlign: "center",
       color: colors.text,
-      fontSize: 18,
+      fontSize: 24,
       fontWeight: "700"
     },
     tableCard: {
@@ -1490,7 +1720,8 @@ function createStyles(theme: AppTheme) {
       borderColor: colors.border,
       borderRadius: radius.xl,
       borderWidth: 1,
-      overflow: "hidden"
+      overflow: "hidden",
+      zIndex: 0
     },
     tableScrollContent: {
       flexGrow: 1
@@ -1542,46 +1773,30 @@ function createStyles(theme: AppTheme) {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs
     },
-    cellPlatform: {
-      flexBasis: 140,
-      flexGrow: 1.1,
-      minWidth: 140
-    },
-    cellStore: {
-      flexBasis: 180,
-      flexGrow: 1.3,
-      minWidth: 180
-    },
-    cellOrder: {
+    cellCompact: {
       flexBasis: 120,
-      flexGrow: 1,
+      flexGrow: 0.8,
       minWidth: 120
     },
-    cellBuyer: {
-      flexBasis: 220,
-      flexGrow: 1.6,
-      gap: spacing.xs,
-      minWidth: 220
-    },
-    cellAddress: {
-      flexBasis: 280,
-      flexGrow: 2,
-      minWidth: 280
-    },
-    cellChannels: {
-      flexBasis: 200,
-      flexGrow: 1.3,
-      minWidth: 200
-    },
-    cellDate: {
-      flexBasis: 120,
-      flexGrow: 1,
-      minWidth: 120
-    },
-    cellWorkflow: {
+    cellStandard: {
       flexBasis: 150,
       flexGrow: 1,
       minWidth: 150
+    },
+    cellMedium: {
+      flexBasis: 180,
+      flexGrow: 1.2,
+      minWidth: 180
+    },
+    cellWide: {
+      flexBasis: 240,
+      flexGrow: 1.5,
+      minWidth: 240
+    },
+    cellDate: {
+      flexBasis: 180,
+      flexGrow: 1.2,
+      minWidth: 180
     },
     cellPrimaryText: {
       color: colors.text,
@@ -1643,6 +1858,28 @@ function createStyles(theme: AppTheme) {
       fontWeight: "700",
       lineHeight: 14,
       textAlignVertical: "center"
+    },
+    deleteButton: {
+      alignItems: "center",
+      backgroundColor: colors.dangerSoft,
+      borderColor: colors.danger,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      justifyContent: "center",
+      minHeight: 36,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm
+    },
+    deleteButtonText: {
+      color: colors.danger,
+      fontSize: 14,
+      fontWeight: "700",
+      lineHeight: 14,
+      textAlignVertical: "center"
+    },
+    modalActions: {
+      flexDirection: "row",
+      gap: spacing.sm
     },
     columnOptionActive: {
       backgroundColor: colors.accentSoft,

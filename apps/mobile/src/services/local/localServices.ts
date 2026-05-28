@@ -1,5 +1,6 @@
 import type { AppServices } from "../interfaces";
 
+import { LocalBackupService } from "./localBackupService";
 import { LocalIntegrationAuthService } from "./localIntegrationAuthService";
 import { LocalMatchService } from "./localMatchService";
 import { LocalMessageService } from "./localMessageService";
@@ -13,6 +14,7 @@ export function createLocalServices(): AppServices {
   const integrationAuthService = new LocalIntegrationAuthService();
 
   return {
+    backupService: new LocalBackupService(storageService),
     storageService,
     workflowService: new LocalWorkflowService(storageService),
     orderSyncService: new LocalOrderSyncService(storageService, integrationAuthService),

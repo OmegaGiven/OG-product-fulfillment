@@ -55,6 +55,15 @@ export async function listRecords(namespace: string) {
     .map((record) => record.payload);
 }
 
+export async function listNamespaceRecords(namespace: string) {
+  return readNamespace(namespace)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .map((record) => ({
+      id: record.id,
+      payload: record.payload
+    }));
+}
+
 export async function deleteRecords(namespace: string) {
   writeNamespace(namespace, []);
 }

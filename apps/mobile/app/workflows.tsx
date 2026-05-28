@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
+import { Modal, ScrollView } from "../src/components/SafeNative";
 import { useBootstrapApp } from "../src/hooks/useBootstrapApp";
 import { useWorkflowTemplates } from "../src/hooks/useWorkflowTemplates";
 import { useAppTheme } from "../src/providers/AppearanceProvider";
@@ -190,14 +191,14 @@ function createStyles(theme: AppTheme) {
 
   return StyleSheet.create({
     container: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flexGrow: 1,
       gap: spacing.lg,
       padding: spacing.xl
     },
     centered: {
       alignItems: "center",
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundWash,
       flex: 1,
       justifyContent: "center",
       padding: spacing.xl

@@ -87,6 +87,8 @@ The plan should prioritize the real fulfillment loop first. Workflow modularity,
 - Browser-compatible OCR engine behind the same `OcrService` contract
 
 ## Implementation Plan
+For the focused work needed to finish reliable shipping label OCR, label detection, and order matching, see `OCR_ORDER_MATCHING_PLAN.md`.
+
 ### Phase 1: Mobile fulfillment loop
 - Build the default V1 workflow around the README flow:
   1. Start fulfillment
