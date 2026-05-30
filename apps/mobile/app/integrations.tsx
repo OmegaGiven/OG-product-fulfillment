@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
@@ -48,6 +48,43 @@ const FALLBACK_INTEGRATION_CATALOG: IntegrationDefinition[] = [
       },
       { key: "siteId", label: "Site ID", placeholder: "Enter Squarespace site ID", secret: false }
     ]
+  },
+  {
+    integrationKey: "ebay",
+    integrationName: "eBay",
+    description: "Pull unfulfilled eBay orders via the Selling API.",
+    fields: [
+      { key: "clientId", label: "App ID (Client ID)", placeholder: "Enter eBay App ID", secret: false },
+      { key: "clientSecret", label: "Cert ID (Client Secret)", placeholder: "Enter eBay Cert ID", secret: true },
+      { key: "redirectUri", label: "RuName (Redirect URI Name)", placeholder: "Enter eBay RuName", secret: false }
+    ],
+    supportsOAuth: true,
+    liveSetupNotes: [
+      "Register at https://developer.ebay.com/my/keys — create a production keyset.",
+      "App ID = Client ID, Cert ID = Client Secret.",
+      "Add a user token (RuName) under Account → User Tokens.",
+      "Set accept URI to productfulfillment://oauth/ebay/callback (native) or your web origin + /oauth/ebay/callback."
+    ]
+  },
+  {
+    integrationKey: "amazon",
+    integrationName: "Amazon",
+    description: "Pull unshipped Amazon orders via SP-API.",
+    fields: [
+      { key: "clientId", label: "LWA Client ID", placeholder: "amzn1.application-oa2-client.xxx", secret: false },
+      { key: "clientSecret", label: "LWA Client Secret", placeholder: "Enter LWA client secret", secret: true },
+      { key: "refreshToken", label: "Refresh Token", placeholder: "Aamz:LWA|...", secret: true },
+      { key: "awsAccessKeyId", label: "AWS Access Key ID", placeholder: "AKIAIOSFODNN7EXAMPLE", secret: false },
+      { key: "awsSecretAccessKey", label: "AWS Secret Access Key", placeholder: "Enter AWS secret access key", secret: true },
+      { key: "marketplace", label: "Marketplace", placeholder: "US, UK, DE, CA, MX, JP, AU (default: US)", secret: false }
+    ],
+    supportsOAuth: true,
+    liveSetupNotes: [
+      "Register at https://developer.amazonservices.com and create a Selling Partner API app.",
+      "Create an IAM user in AWS Console with AmazonSPAPISellerFullAccess policy.",
+      "Tap 'Prepare OAuth' then 'Authorize with Amazon' to get a refresh token automatically.",
+      "Or paste a refresh token directly if you already have one from Seller Central."
+    ]
   }
 ];
 
@@ -94,6 +131,8 @@ export default function IntegrationsScreen() {
   const [isAddIntegrationModalOpen, setIsAddIntegrationModalOpen] = useState(false);
   const [selectedIntegrationKey, setSelectedIntegrationKey] = useState<string | null>(null);
   const [preparedOAuth, setPreparedOAuth] = useState<PreparedIntegrationOAuth | null>(null);
+  const [oauthCode, setOauthCode] = useState("");
+  const [oauthBusy, setOauthBusy] = useState(false);
   const suggestedEtsyRedirectUri = getSuggestedEtsyRedirectUri();
 
   useEffect(() => {
@@ -276,12 +315,60 @@ export default function IntegrationsScreen() {
       if (!prepared) {
         throw new Error("OAuth preparation is not available for this integration.");
       }
+      setOauthCode("");
       setPreparedOAuth(prepared);
-      showToast("Prepared Etsy OAuth URL", { variant: "success" });
     } catch (nextError) {
       showToast((nextError as Error).message, { variant: "error", durationMs: 4200 });
     } finally {
       setBusyKey(null);
+    }
+  }
+
+  async function openOAuthUrl() {
+    if (!preparedOAuth) return;
+
+    if (Platform.OS !== "web") {
+      setOauthBusy(true);
+      try {
+        const WebBrowser = await import("expo-web-browser");
+        const result = await WebBrowser.openAuthSessionAsync(
+          preparedOAuth.authorizationUrl,
+          "productfulfillment://"
+        );
+        if (result.type === "success") {
+          const url = new URL(result.url);
+          const code = url.searchParams.get("code");
+          const state = url.searchParams.get("state");
+          if (code && state) {
+            await completeOAuth(code, state);
+            return;
+          }
+        }
+        if (result.type === "cancel") {
+          showToast("Etsy authorization cancelled.", { variant: "error" });
+        }
+      } catch (err) {
+        showToast((err as Error).message, { variant: "error", durationMs: 4200 });
+      } finally {
+        setOauthBusy(false);
+      }
+    } else {
+      await Linking.openURL(preparedOAuth.authorizationUrl);
+    }
+  }
+
+  async function completeOAuth(code: string, state: string) {
+    setOauthBusy(true);
+    try {
+      await integrationAuthService.completeOAuthConnectionByState(code, state);
+      await refresh();
+      setPreparedOAuth(null);
+      setOauthCode("");
+      showToast("Etsy connected!", { variant: "success" });
+    } catch (err) {
+      showToast((err as Error).message, { variant: "error", durationMs: 4200 });
+    } finally {
+      setOauthBusy(false);
     }
   }
 
@@ -364,6 +451,14 @@ export default function IntegrationsScreen() {
                       {connection.hasStoredCredentials ? "Yes" : "No"}
                     </Text>
                   </View>
+                  {connection.supportsOAuth ? (
+                    <View style={styles.metricTile}>
+                      <Text style={styles.metricLabel}>OAuth</Text>
+                      <Text style={styles.metricValue}>
+                        {connection.hasOAuthTokens ? "Connected" : "None"}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 <Text style={styles.metaText}>
@@ -694,7 +789,7 @@ export default function IntegrationsScreen() {
         <View style={styles.modalScrim}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.cardTitle}>Prepared Etsy OAuth</Text>
+              <Text style={styles.cardTitle}>Connect Etsy</Text>
               <Pressable onPress={() => setPreparedOAuth(null)} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>Close</Text>
               </Pressable>
@@ -709,6 +804,50 @@ export default function IntegrationsScreen() {
               <Text style={styles.fieldLabel}>Scopes</Text>
               <Text style={styles.oauthValue}>{preparedOAuth?.scopes.join(", ")}</Text>
             </View>
+
+            <Pressable
+              disabled={oauthBusy}
+              onPress={() => void openOAuthUrl()}
+              style={styles.primaryButton}
+            >
+              <Text style={styles.primaryButtonText}>
+                {oauthBusy
+                  ? "Working..."
+                  : Platform.OS === "web"
+                    ? "Open Authorization URL"
+                    : `Authorize with ${preparedOAuth?.integrationKey === "ebay" ? "eBay" : preparedOAuth?.integrationKey === "amazon" ? "Amazon" : "Etsy"}`
+                }
+              </Text>
+            </Pressable>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Enter Code Manually</Text>
+              <Text style={styles.metaText}>
+                If redirected back with a code in the URL, paste it here.
+              </Text>
+              <TextInput
+                autoCapitalize="none"
+                onChangeText={setOauthCode}
+                placeholder="Paste authorization code"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+                value={oauthCode}
+              />
+            </View>
+
+            {oauthCode.trim() ? (
+              <Pressable
+                disabled={oauthBusy}
+                onPress={() =>
+                  void completeOAuth(oauthCode.trim(), preparedOAuth?.state ?? "")
+                }
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {oauthBusy ? "Completing..." : "Complete OAuth"}
+                </Text>
+              </Pressable>
+            ) : null}
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Authorization URL</Text>

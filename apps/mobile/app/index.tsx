@@ -86,7 +86,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Incomplete Fulfillments</Text>
+        <Text style={styles.sectionTitle}>Fulfillment Runs</Text>
       </View>
 
       {runs.length === 0 ? (
@@ -98,6 +98,7 @@ export default function HomeScreen() {
         runs.map((run) => {
           const template = templates.find((entry) => entry.id === run.workflowTemplateId);
           const runTitle = `${template?.name ?? run.name}: #${run.id}`;
+          const isResumable = run.status !== "completed" && run.currentStepIndex > 0;
 
           return (
             <Pressable
@@ -131,6 +132,7 @@ export default function HomeScreen() {
               </View>
               <Text style={styles.cardMeta}>
                 Step {run.currentStepIndex + 1} of {run.stepOrder.length}
+                {isResumable ? " — tap to resume" : ""}
               </Text>
               <Text style={styles.cardMeta}>Execution mode: {run.executionMode}</Text>
             </Pressable>

@@ -1,6 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 
 import { Pressable } from "../components/InteractivePressable";
 import { TextInput } from "../components/SafeNative";
@@ -69,6 +70,7 @@ function formatRecipient(
 }
 
 export function WorkflowScreen({ run, workflow, onRunUpdated }: Props) {
+  const router = useRouter();
   const { theme } = useAppTheme();
   const styles = createStyles(theme);
   const { showToast } = useToast();
@@ -306,6 +308,12 @@ export function WorkflowScreen({ run, workflow, onRunUpdated }: Props) {
     } finally {
       setIsBusy(false);
     }
+  }
+
+  function saveAndExit() {
+    // State is auto-persisted after every step action — just navigate away
+    showToast("Progress saved. Resume from the home screen.", { variant: "success" });
+    router.replace("/");
   }
 
   return (
@@ -708,6 +716,12 @@ export function WorkflowScreen({ run, workflow, onRunUpdated }: Props) {
         )}
       </View>
 
+      {run.status !== "completed" ? (
+        <Pressable onPress={saveAndExit} style={styles.saveExitButton} disabled={isBusy}>
+          <Text style={styles.saveExitButtonText}>Save & Exit</Text>
+        </Pressable>
+      ) : null}
+
       {__DEV__ ? (
         <View style={styles.debugBanner}>
           <Pressable
@@ -868,6 +882,15 @@ return StyleSheet.create({
   navigationRow: {
     flexDirection: "row",
     gap: spacing.sm
+  },
+  saveExitButton: {
+    alignItems: "center",
+    paddingVertical: spacing.sm
+  },
+  saveExitButtonText: {
+    color: colors.muted,
+    fontSize: 14,
+    textDecorationLine: "underline"
   },
   primaryButton: {
     backgroundColor: colors.accent,
