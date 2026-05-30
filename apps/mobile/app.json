@@ -2,12 +2,34 @@
   "expo": {
     "name": "Product Fulfillment",
     "slug": "product-fulfillment",
+    "version": "1.0.0",
     "scheme": "productfulfillment",
+    "orientation": "portrait",
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-web-browser"
     ],
+    "ios": {
+      "bundleIdentifier": "com.omegagiven.productfulfillment",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to photograph shipping labels and products during fulfillment.",
+        "NSPhotoLibraryUsageDescription": "Used to attach product photos to customer emails."
+      }
+    },
+    "android": {
+      "package": "com.omegagiven.productfulfillment",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
+    },
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true

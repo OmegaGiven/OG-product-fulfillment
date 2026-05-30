@@ -1,0 +1,84 @@
+name: Preview Build
+
+# Trigger: every push to main (or PR into main)
+# Builds internal-distribution APK + IPA for testing via EAS.
+# Does NOT submit to stores — distribute via EAS internal sharing link.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  preview:
+    name: Preview Build (Android + iOS)
+    runs-on: ubuntu-latest
+    # Skip if commit message contains [skip ci] or [no build]
+    if: |
+      !contains(github.event.head_commit.message, '[skip ci]') &&
+      !contains(github.event.head_commit.message, '[no build]')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node + deps ────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install mobile dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      # ── Type check before building ─────────────────────────────────────────
+      - name: TypeScript check
+        working-directory: apps/mobile
+        run: npx tsc --noEmit
+
+      # ── EAS Preview Build ──────────────────────────────────────────────────
+      - name: Install EAS CLI
+        run: npm install -g eas-cli@latest
+
+      - name: Build Android APK + iOS preview
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build \
+            --platform all \
+            --profile preview \
+            --non-interactive \
+            --no-wait \
+            --message "Preview: ${{ github.ref_name }} @ $(echo '${{ github.sha }}' | cut -c1-7)"
+
+      # ── Comment on PR with EAS dashboard link ─────────────────────────────
+      - name: Comment build status on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: [
+                '### Preview Build Queued',
+                '',
+                'EAS is building Android (APK) and iOS (IPA) for this PR.',
+                '',
+                '- Track progress and download builds at [expo.dev/accounts](https://expo.dev)',
+                '- Build profile: `preview` (internal distribution)',
+                '- Commit: `${{ github.sha }}`.slice(0, 7)',
+                '',
+                '_Once complete, install via the EAS internal link. No store submission for previews._'
+              ].join('\n')
+            });
