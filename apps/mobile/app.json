@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "OG Fulfillment",
-    "slug": "og-fulfillment",
+    "slug": "product-fulfillment",
     "version": "1.0.0",
     "scheme": "ogfulfillment",
     "orientation": "portrait",
