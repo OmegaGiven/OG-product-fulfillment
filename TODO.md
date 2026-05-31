@@ -234,16 +234,88 @@ The `production-release.yml` workflow automatically:
 
 ---
 
-## Phase 6 — Monetisation
+## Phase 6 — Monetisation ✅ (code done, needs your keys)
 
-- [ ] **[ME]** Say **"add RevenueCat"** → I'll add the full subscription paywall in one session — no manual steps from you for the code
-- [ ] **[YOU]** Create subscription products in both stores (after app records are created):
-  - App Store Connect → your app → In-App Purchases → Subscriptions
-  - Play Console → your app → Monetise → Subscriptions
-  - Use these product IDs (I'll match them in code):
-    - `starter_monthly` — $7/month
-    - `pro_monthly` — $14/month
-    - `business_monthly` — $24/month
+Code is built. Three things needed from you:
+
+---
+
+### 6a — RevenueCat account + API keys
+
+**File to edit after getting keys:** `apps/mobile/src/services/cloud/revenueCatService.ts`
+Replace lines 7–8:
+```
+const RC_API_KEY_IOS = "appl_REPLACE_WITH_YOUR_IOS_KEY";
+const RC_API_KEY_ANDROID = "goog_REPLACE_WITH_YOUR_ANDROID_KEY";
+```
+
+**Steps to get your keys:**
+
+1. Go to https://app.revenuecat.com → **Sign up** (free)
+2. **Create new project** → name: `OG Product Fulfillment`
+3. Add **iOS app**:
+   - App Store Connect App → select `Product Fulfillment`
+   - Bundle ID: `com.omegagiven.productfulfillment`
+   - Copy the **iOS SDK key** (starts with `appl_`)
+4. Add **Android app**:
+   - Package name: `com.omegagiven.productfulfillment`
+   - Copy the **Android SDK key** (starts with `goog_`)
+5. In RevenueCat → **Entitlements** → Create 3 entitlements:
+   - Identifier: `single_integration`
+   - Identifier: `all_integrations`
+   - Identifier: `photo_backup`
+6. Paste both keys into `revenueCatService.ts`, then say **"commit RevenueCat keys"** → I'll push
+
+---
+
+### 6b — App Store subscription products
+
+**App Store Connect:** https://appstoreconnect.apple.com → your app → **Monetisation → Subscriptions**
+
+Create a subscription group named `OG Fulfillment Plans`, then add 3 products:
+
+| Product ID | Price | Display name |
+|---|---|---|
+| `productfulfillment_single_monthly` | $4.99/mo | Integrations |
+| `productfulfillment_pro_monthly` | $9.99/mo | Pro |
+| `productfulfillment_photo_backup_monthly` | $2.99/mo | Photo Backup |
+
+After creating each product, go back to RevenueCat → **Products** → Add each product ID → attach to the matching entitlement.
+
+---
+
+### 6c — Google Play subscription products
+
+**Play Console:** https://play.google.com/console → your app → **Monetise → Subscriptions → Create subscription**
+
+Create 3 subscriptions with the same product IDs as above, same prices. Then add them in RevenueCat → Products → attach to entitlements.
+
+---
+
+### 6d — Add your first beta promo code
+
+Once Firebase is configured (Phase 6b above), add this document in Firebase Console:
+
+**Collection:** `promoCodes` → **Document ID:** `BETA100`
+```json
+{
+  "discountPercent": 100,
+  "entitlement": "all_integrations",
+  "durationDays": 90,
+  "maxUses": 500,
+  "usesRemaining": 500,
+  "validUntil": "2026-12-31",
+  "active": true
+}
+```
+
+Users enter `BETA100` on the paywall → 90 days Pro free. Change `active` to `false` to kill it anytime.
+
+---
+
+### 6e — Add `react-native-purchases` plugin to app.json
+
+- [ ] **[ME]** Say **"commit RevenueCat keys"** after filling in the keys → I'll also add the plugin to `app.json` and push
 
 ---
 
@@ -256,7 +328,8 @@ Say any of these:
 | `"write privacy policy"` | Full HTML + GitHub Pages hosting instructions |
 | `"write store listings"` | Both store descriptions, keywords, promo text |
 | `"add onboarding"` | 3-screen first-launch flow |
-| `"add RevenueCat"` | Full subscription paywall + integration gating |
+| `"commit RevenueCat keys"` | Add plugin to app.json, commit keys, push + trigger build |
 | `"trigger preview build"` | ✅ Build triggered — check expo.dev → Builds |
 | `"add Shopify"` | Shopify Admin API — orders, OAuth, sync, ship confirm |
 | `"add WooCommerce"` | WooCommerce REST API — key auth, order sync |
+| `"commit firebase config"` | Commit filled-in Firebase values + push |
