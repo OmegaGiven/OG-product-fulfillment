@@ -1224,6 +1224,12 @@ export default function SettingsScreen() {
         <CloudStorageSection />
 
         <View style={styles.footerCard}>
+          <Pressable
+            onPress={() => router.push("/help")}
+            style={styles.helpButton}
+          >
+            <Text style={styles.helpButtonText}>Help & Tips</Text>
+          </Pressable>
           <View style={styles.versionPill}>
             <Text style={styles.versionText}>Version 0.1.0</Text>
           </View>
@@ -1664,6 +1670,20 @@ function createStyles(theme: AppTheme) {
       backgroundColor: colors.accent,
       borderRadius: radius.pill,
       height: "100%"
+    },
+    helpButton: {
+      alignItems: "center",
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md
+    },
+    helpButtonText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "700"
     },
     versionPill: {
       alignSelf: "flex-start",

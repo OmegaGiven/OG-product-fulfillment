@@ -17,6 +17,7 @@
     "expo": "~54.0.33",
     "expo-apple-authentication": "^56.0.4",
     "expo-camera": "~17.0.10",
+    "expo-document-picker": "^56.0.4",
     "expo-file-system": "~19.0.21",
     "expo-image-picker": "~17.0.10",
     "expo-mail-composer": "~15.0.8",

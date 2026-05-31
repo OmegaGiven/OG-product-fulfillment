@@ -16,7 +16,8 @@
       "expo-secure-store",
       "expo-sqlite",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-document-picker"
     ],
     "ios": {
       "bundleIdentifier": "com.omegagiven.ogfulfillment",
