@@ -235,6 +235,6 @@ Say any of these:
 | `"write store listings"` | Both store descriptions, keywords, promo text |
 | `"add onboarding"` | 3-screen first-launch flow |
 | `"add RevenueCat"` | Full subscription paywall + integration gating |
-| `"trigger preview build"` | Push commit to kick off EAS build workflow |
+| `"trigger preview build"` | ✅ Build triggered — check expo.dev → Builds |
 | `"add Shopify"` | Shopify Admin API — orders, OAuth, sync, ship confirm |
 | `"add WooCommerce"` | WooCommerce REST API — key auth, order sync |
