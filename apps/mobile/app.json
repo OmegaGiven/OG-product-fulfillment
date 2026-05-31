@@ -5,6 +5,12 @@
     "version": "1.0.0",
     "scheme": "productfulfillment",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
@@ -27,12 +33,20 @@
         "android.permission.CAMERA"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#e2e8f0"
       }
     },
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2d07c777-557c-450c-8693-aaad08ccb704"
+      }
+    },
+    "owner": "omegagiven"
   }
 }
