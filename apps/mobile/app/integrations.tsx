@@ -65,7 +65,7 @@ const FALLBACK_INTEGRATION_CATALOG: IntegrationDefinition[] = [
       "Register at https://developer.ebay.com/my/keys — create a production keyset.",
       "App ID = Client ID, Cert ID = Client Secret.",
       "Add a user token (RuName) under Account → User Tokens.",
-      "Set accept URI to productfulfillment://oauth/ebay/callback (native) or your web origin + /oauth/ebay/callback."
+      "Set accept URI to ogfulfillment://oauth/ebay/callback (native) or your web origin + /oauth/ebay/callback."
     ]
   },
   {
@@ -337,7 +337,7 @@ export default function IntegrationsScreen() {
         const WebBrowser = await import("expo-web-browser");
         const result = await WebBrowser.openAuthSessionAsync(
           preparedOAuth.authorizationUrl,
-          "productfulfillment://"
+          "ogfulfillment://"
         );
         if (result.type === "success") {
           const url = new URL(result.url);

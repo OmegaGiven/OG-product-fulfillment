@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-const SECURE_PREFIX = "product-fulfillment-secure-";
+const SECURE_PREFIX = "og-fulfillment-secure-";
 const MAX_KEY_LENGTH = 64;
 
 function hashKey(value: string) {

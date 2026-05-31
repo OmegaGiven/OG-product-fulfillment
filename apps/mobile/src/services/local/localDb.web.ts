@@ -5,7 +5,7 @@ type StoredRecord = {
 };
 
 function getStorageKey(namespace: string) {
-  return `product-fulfillment:${namespace}`;
+  return `og-fulfillment:${namespace}`;
 }
 
 function readNamespace(namespace: string): StoredRecord[] {

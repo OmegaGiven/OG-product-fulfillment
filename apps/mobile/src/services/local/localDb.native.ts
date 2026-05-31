@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 
-const DATABASE_NAME = "product-fulfillment-v1.db";
+const DATABASE_NAME = "og-fulfillment-v1.db";
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 

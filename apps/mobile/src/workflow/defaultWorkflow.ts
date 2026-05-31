@@ -2,7 +2,7 @@ import type { WorkflowTemplate } from "../domain";
 
 export const DEFAULT_WORKFLOW_TEMPLATE: WorkflowTemplate = {
   id: 1,
-  name: "Default Product Fulfillment Workflow",
+  name: "Default OG Fulfillment Workflow",
   executionMode: "local",
   stepOrder: [
     "step_start",

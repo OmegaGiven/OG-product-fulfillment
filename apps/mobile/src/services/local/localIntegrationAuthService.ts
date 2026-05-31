@@ -68,7 +68,7 @@ const SUPPORTED_INTEGRATIONS: IntegrationDefinition[] = [
     liveSetupNotes: [
       "Register an app at https://www.etsy.com/developers/register to get your keystring and shared secret.",
       "Set the redirect URI in your Etsy app settings to match exactly what you enter here.",
-      "For native: use productfulfillment://oauth/etsy/callback as the redirect URI.",
+      "For native: use ogfulfillment://oauth/etsy/callback as the redirect URI.",
       "For web: use your hosted origin + /oauth/etsy/callback.",
       "After saving credentials, hit 'Prepare OAuth' then 'Authorize with Etsy' to complete the connection.",
       "OAuth tokens expire after 1 hour and auto-refresh. Refresh tokens last 90 days."
@@ -130,7 +130,7 @@ const SUPPORTED_INTEGRATIONS: IntegrationDefinition[] = [
       "Register at https://developer.ebay.com/my/keys — create a production keyset.",
       "App ID = Client ID, Cert ID = Client Secret.",
       "Add a user token (RuName) in Account → User Tokens → Get a Token from eBay via Your Application.",
-      "Set the accept URI to productfulfillment://oauth/ebay/callback (native) or your web origin + /oauth/ebay/callback.",
+      "Set the accept URI to ogfulfillment://oauth/ebay/callback (native) or your web origin + /oauth/ebay/callback.",
       "RuName is the registered name shown in the developer portal (not the actual redirect URL).",
       "After saving credentials, tap 'Prepare OAuth' then 'Authorize with eBay'."
     ]
@@ -182,7 +182,7 @@ const SUPPORTED_INTEGRATIONS: IntegrationDefinition[] = [
       "Register at https://developer.amazonservices.com — create a Selling Partner API app.",
       "Create an IAM user in AWS Console and attach the AmazonSPAPISellerFullAccess managed policy.",
       "Enter IAM user's access key ID and secret access key.",
-      "In Amazon Seller Central → Apps & Services → Develop Apps, set redirect URL to productfulfillment://oauth/amazon/callback.",
+      "In Amazon Seller Central → Apps & Services → Develop Apps, set redirect URL to ogfulfillment://oauth/amazon/callback.",
       "Tap 'Prepare OAuth' then 'Authorize with Amazon' to get a refresh token stored automatically.",
       "Alternatively, paste a refresh token directly if you already have one from Seller Central.",
       "Marketplace field: US (default), UK, DE, CA, MX, JP, AU."
@@ -452,7 +452,7 @@ export class LocalIntegrationAuthService implements IntegrationAuthService {
       if (!clientId) {
         throw new Error("Amazon live setup requires LWA Client ID.");
       }
-      const redirectUri = "productfulfillment://oauth/amazon/callback";
+      const redirectUri = "ogfulfillment://oauth/amazon/callback";
       await setSecureJson(`${OAUTH_STATE_PREFIX}${connectionId}`, {
         state,
         redirectUri,

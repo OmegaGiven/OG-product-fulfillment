@@ -177,7 +177,7 @@ export default function PaywallScreen() {
       <AppNav title="Upgrade" />
 
       <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>OG Product Fulfillment</Text>
+        <Text style={styles.heroTitle}>OG Fulfillment</Text>
         <Text style={styles.heroSubtitle}>
           Scan labels, match orders, notify customers — from your phone.
         </Text>

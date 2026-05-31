@@ -85,7 +85,7 @@ function getFileExtension(uri: string) {
 
 function buildBundleName(exportedAt: string) {
   const compact = exportedAt.replace(/[:.]/g, "-");
-  return `product-fulfillment-export-${compact}`;
+  return `og-fulfillment-export-${compact}`;
 }
 
 function getParentUri(uri: string) {
@@ -267,15 +267,15 @@ export class LocalBackupService implements BackupService {
     const importDirectory = await Directory.pickDirectoryAsync();
     const manifestFile = new File(importDirectory.uri, MANIFEST_FILE_NAME);
     if (!manifestFile.exists) {
-      throw new Error("Selected folder does not contain a Product Fulfillment manifest.json file.");
+      throw new Error("Selected folder does not contain a OG Fulfillment manifest.json file.");
     }
     const manifest = JSON.parse(await manifestFile.text()) as BackupManifest;
 
     if (manifest.version !== 1 || !manifest.namespaces || !manifest.bundleName) {
-      throw new Error("Selected file is not a supported Product Fulfillment backup manifest.");
+      throw new Error("Selected file is not a supported OG Fulfillment backup manifest.");
     }
 
-    const importRoot = new Directory(Paths.document, "product-fulfillment-imports", manifest.bundleName);
+    const importRoot = new Directory(Paths.document, "og-fulfillment-imports", manifest.bundleName);
     importRoot.create({ idempotent: true, intermediates: true });
 
     const nextRunRecords = new Map<string, StoredNamespaceRecord>();

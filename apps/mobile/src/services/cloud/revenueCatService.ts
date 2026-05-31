@@ -19,9 +19,9 @@ export const PACKAGE_PHOTO = "$rc_monthly";  // photo backup $3/mo offering
 
 // Product IDs — must match exactly what you create in App Store + Play Console
 export const PRODUCT_IDS = {
-  singleIntegration: "productfulfillment_single_monthly",
-  proIntegrations: "productfulfillment_pro_monthly",
-  photoBackup: "productfulfillment_photo_backup_monthly"
+  singleIntegration: "ogfulfillment_single_monthly",
+  proIntegrations: "ogfulfillment_pro_monthly",
+  photoBackup: "ogfulfillment_photo_backup_monthly"
 } as const;
 
 export type EntitlementKey =

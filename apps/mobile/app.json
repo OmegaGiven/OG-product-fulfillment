@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Product Fulfillment",
-    "slug": "product-fulfillment",
+    "name": "OG Fulfillment",
+    "slug": "og-fulfillment",
     "version": "1.0.0",
-    "scheme": "productfulfillment",
+    "scheme": "ogfulfillment",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -19,7 +19,7 @@
       "expo-apple-authentication"
     ],
     "ios": {
-      "bundleIdentifier": "com.omegagiven.productfulfillment",
+      "bundleIdentifier": "com.omegagiven.ogfulfillment",
       "buildNumber": "1",
       "supportsTablet": false,
       "infoPlist": {
@@ -29,7 +29,7 @@
       }
     },
     "android": {
-      "package": "com.omegagiven.productfulfillment",
+      "package": "com.omegagiven.ogfulfillment",
       "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA"
