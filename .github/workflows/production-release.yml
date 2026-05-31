@@ -65,10 +65,10 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           # Android submit — service account JSON stored as a secret
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
-          # iOS submit — App Store Connect API key
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          # iOS build credentials + submit — EAS CLI reads these exact var names
+          EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
+          EXPO_APPLE_APP_STORE_CONNECT_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: |
           eas build \
             --platform all \

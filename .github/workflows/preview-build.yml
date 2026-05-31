@@ -52,6 +52,10 @@ jobs:
         working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          # EAS CLI reads these exact var names to auto-create iOS credentials
+          EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
+          EXPO_APPLE_APP_STORE_CONNECT_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: |
           eas build \
             --platform all \
