@@ -212,6 +212,28 @@ The `production-release.yml` workflow automatically:
 
 ---
 
+## Phase 6b — Firebase Setup (Cloud Sync activation)
+
+- [ ] **[YOU]** Go to https://console.firebase.google.com → **Create project** → name: `og-product-fulfillment`
+- [ ] **[YOU]** Inside project → **Firestore Database** → Create → **Production mode** → choose nearest region
+- [ ] **[YOU]** Inside project → **Authentication** → Get started → Sign-in method → enable:
+  - **Email/Password** → Enable → Save
+  - **Apple** → Enable → paste your Apple Service ID (from developer.apple.com → Identifiers → + → Services IDs) → Save
+- [ ] **[YOU]** Project Settings (gear icon) → **Your apps → Add app → Web** → register app → copy the config object
+- [ ] **[YOU]** Paste the 6 values into `apps/mobile/app.json` under `extra`:
+  ```json
+  "firebaseApiKey": "AIza...",
+  "firebaseAuthDomain": "og-product-fulfillment.firebaseapp.com",
+  "firebaseProjectId": "og-product-fulfillment",
+  "firebaseStorageBucket": "og-product-fulfillment.appspot.com",
+  "firebaseMessagingSenderId": "123456789",
+  "firebaseAppId": "1:123:web:abc"
+  ```
+- [ ] **[YOU]** Firestore → **Rules tab** → paste contents of `firestore.rules` from repo → Publish
+- [ ] **[ME]** Say **"commit firebase config"** after filling in the values → I'll commit + push + trigger build
+
+---
+
 ## Phase 6 — Monetisation
 
 - [ ] **[ME]** Say **"add RevenueCat"** → I'll add the full subscription paywall in one session — no manual steps from you for the code
