@@ -23,7 +23,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "Used to photograph shipping labels and products during fulfillment.",
-        "NSPhotoLibraryUsageDescription": "Used to attach product photos to customer emails."
+        "NSPhotoLibraryUsageDescription": "Used to attach product photos to customer emails.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
