@@ -24,6 +24,7 @@ export type IntegrationConnection = {
   lastSyncedAt: string | null;
   syncedOrderCount: number;
   hasStoredCredentials: boolean;
+  hasOAuthTokens: boolean;
   fields: IntegrationCredentialField[];
   usesSecureStorage: boolean;
   supportsOAuth?: boolean;
@@ -139,8 +140,10 @@ export interface IntegrationAuthService {
   listIntegrationCatalog(): Promise<IntegrationDefinition[]>;
   saveCredentials(input: IntegrationCredentialInput): Promise<IntegrationConnection>;
   prepareOAuthConnection(connectionId: RecordId): Promise<PreparedIntegrationOAuth | null>;
+  completeOAuthConnectionByState(code: string, state: string): Promise<IntegrationConnection>;
   removeCredentials(connectionId: RecordId): Promise<void>;
   recordSyncResult(connectionId: RecordId, syncedOrderCount: number): Promise<void>;
+  getCredentials(connectionId: RecordId): Promise<Record<string, string> | null>;
 }
 
 export interface AppServices {

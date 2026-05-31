@@ -20,7 +20,7 @@ export function createLocalServices(): AppServices {
     orderSyncService: new LocalOrderSyncService(storageService, integrationAuthService),
     ocrService: new LocalOcrService(storageService),
     matchService: new LocalMatchService(storageService),
-    messageService: new LocalMessageService(storageService),
+    messageService: new LocalMessageService(storageService, integrationAuthService),
     integrationAuthService
   };
 }
