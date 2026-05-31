@@ -29,7 +29,6 @@
     stroke-linecap="round"/>
 
   <!-- Checkmark: rises from inside the box and out through the top opening -->
-  <!-- Left leg of check descends into box, right leg sweeps up and out -->
   <polyline
     points="350,620 468,740 700,360"
     fill="none"
