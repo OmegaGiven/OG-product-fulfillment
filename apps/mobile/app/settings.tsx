@@ -23,6 +23,13 @@ import { useServices } from "../src/providers/AppProviders";
 import { useAccessControl } from "../src/providers/AccessControlProvider";
 import { useAppTheme } from "../src/providers/AppearanceProvider";
 import { useToast } from "../src/providers/ToastProvider";
+import { useCloudSync } from "../src/providers/CloudSyncProvider";
+import {
+  signInWithEmail,
+  signUpWithEmail,
+  signInWithApple,
+  signOut
+} from "../src/services/cloud/cloudAuthService";
 import type { AccentColor, AppTheme, BackgroundColor } from "../src/theme";
 
 const ACCENT_WHEEL: AccentColor[] = [
@@ -214,6 +221,7 @@ export default function SettingsScreen() {
   } = useAppTheme();
   const { backupService } = useServices();
   const { showToast } = useToast();
+  const { user, isConfigured, syncStatus, lastSyncedAt, lastError, pushToCloud, pullFromCloud } = useCloudSync();
   const { colors } = theme;
   const styles = createStyles(theme);
   const [activeColorEditor, setActiveColorEditor] = useState<"accent" | "background" | null>(null);
@@ -235,6 +243,10 @@ export default function SettingsScreen() {
     | "exporting-fulfillment-views"
     | "importing-fulfillment-views"
   >("idle");
+  const [cloudAuthMode, setCloudAuthMode] = useState<"signin" | "signup">("signin");
+  const [cloudEmail, setCloudEmail] = useState("");
+  const [cloudPassword, setCloudPassword] = useState("");
+  const [cloudAuthBusy, setCloudAuthBusy] = useState(false);
   const colorAreaRef = useRef<HTMLDivElement | null>(null);
   const hueSliderRef = useRef<HTMLDivElement | null>(null);
   const { exportViews: exportOrderViews, importViews: importOrderViews } = useSavedViews<
@@ -446,6 +458,67 @@ export default function SettingsScreen() {
       }
     } finally {
       setTransferState("idle");
+    }
+  }
+
+  async function handleCloudSignIn() {
+    setCloudAuthBusy(true);
+    try {
+      if (cloudAuthMode === "signup") {
+        await signUpWithEmail(cloudEmail.trim(), cloudPassword);
+      } else {
+        await signInWithEmail(cloudEmail.trim(), cloudPassword);
+      }
+      setCloudEmail("");
+      setCloudPassword("");
+      showToast("Signed in. Syncing data...", { variant: "success" });
+    } catch (error) {
+      showToast((error as Error).message, { variant: "error", durationMs: 5000 });
+    } finally {
+      setCloudAuthBusy(false);
+    }
+  }
+
+  async function handleAppleSignIn() {
+    setCloudAuthBusy(true);
+    try {
+      await signInWithApple();
+      showToast("Signed in with Apple. Syncing data...", { variant: "success" });
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!message.toLowerCase().includes("cancel")) {
+        showToast(message, { variant: "error", durationMs: 5000 });
+      }
+    } finally {
+      setCloudAuthBusy(false);
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+      showToast("Signed out.");
+    } catch (error) {
+      showToast((error as Error).message, { variant: "error" });
+    }
+  }
+
+  async function handlePushToCloud() {
+    const summary = await pushToCloud();
+    if (summary) {
+      showToast(
+        `Synced to cloud: ${summary.workflows} workflows, ${summary.runs} runs.`,
+        { variant: "success" }
+      );
+    }
+  }
+
+  async function handlePullFromCloud() {
+    await pullFromCloud();
+    if (!lastError) {
+      showToast("Pulled latest data from cloud.", { variant: "success" });
+    } else {
+      showToast(`Pull failed: ${lastError}`, { variant: "error", durationMs: 5000 });
     }
   }
 
@@ -924,6 +997,127 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
+        </View>
+
+        {/* ── Cloud Sync ────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Cloud Sync</Text>
+          <Text style={styles.metaText}>
+            Sign in to sync workflows, templates, and fulfillment runs across devices. API keys and photos stay local only.
+          </Text>
+
+          {!isConfigured ? (
+            <Text style={[styles.metaText, { color: colors.danger }]}>
+              Firebase not configured. Add your Firebase project config to app.json extra fields to enable cloud sync.
+            </Text>
+          ) : user ? (
+            <View style={styles.fieldGroup}>
+              <View style={styles.metricRow}>
+                <Text style={styles.metricLabel}>Signed in as</Text>
+                <Text style={styles.metricValue}>{user.email ?? user.uid}</Text>
+              </View>
+              {lastSyncedAt ? (
+                <View style={styles.metricRow}>
+                  <Text style={styles.metricLabel}>Last synced</Text>
+                  <Text style={styles.metricValue}>
+                    {new Date(lastSyncedAt).toLocaleString()}
+                  </Text>
+                </View>
+              ) : null}
+              {lastError ? (
+                <Text style={[styles.metaText, { color: colors.danger }]}>{lastError}</Text>
+              ) : null}
+              <View style={styles.buttonRow}>
+                <Pressable
+                  onPress={() => void handlePushToCloud()}
+                  style={styles.secondaryButton}
+                  disabled={syncStatus === "syncing"}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {syncStatus === "syncing" ? "Syncing..." : "Push to Cloud"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handlePullFromCloud()}
+                  style={styles.secondaryButton}
+                  disabled={syncStatus === "syncing"}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {syncStatus === "syncing" ? "Syncing..." : "Pull from Cloud"}
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                onPress={() => void handleSignOut()}
+                style={styles.dangerButton}
+              >
+                <Text style={styles.dangerButtonText}>Sign Out</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.fieldGroup}>
+              <View style={styles.tabRow}>
+                <Pressable
+                  onPress={() => setCloudAuthMode("signin")}
+                  style={[styles.tab, cloudAuthMode === "signin" ? styles.tabActive : null]}
+                >
+                  <Text style={[styles.tabText, cloudAuthMode === "signin" ? styles.tabTextActive : null]}>
+                    Sign In
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setCloudAuthMode("signup")}
+                  style={[styles.tab, cloudAuthMode === "signup" ? styles.tabActive : null]}
+                >
+                  <Text style={[styles.tabText, cloudAuthMode === "signup" ? styles.tabTextActive : null]}>
+                    Create Account
+                  </Text>
+                </Pressable>
+              </View>
+              <TextInput
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                onChangeText={setCloudEmail}
+                placeholder="Email address"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+                value={cloudEmail}
+              />
+              <TextInput
+                autoComplete="password"
+                onChangeText={setCloudPassword}
+                placeholder="Password"
+                placeholderTextColor={colors.muted}
+                secureTextEntry
+                style={styles.input}
+                value={cloudPassword}
+              />
+              <Pressable
+                onPress={() => void handleCloudSignIn()}
+                style={styles.primaryButton}
+                disabled={cloudAuthBusy || !cloudEmail.trim() || !cloudPassword}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {cloudAuthBusy
+                    ? "Working..."
+                    : cloudAuthMode === "signup"
+                      ? "Create Account"
+                      : "Sign In"}
+                </Text>
+              </Pressable>
+              {/* Apple Sign-In — iOS only */}
+              <Pressable
+                onPress={() => void handleAppleSignIn()}
+                style={styles.appleButton}
+                disabled={cloudAuthBusy}
+              >
+                <Text style={styles.appleButtonText}>
+                  Sign in with Apple
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <View style={styles.footerCard}>
@@ -1453,6 +1647,67 @@ function createStyles(theme: AppTheme) {
       fontSize: 14,
       fontWeight: "700",
       textAlign: "center"
+    },
+    dangerButton: {
+      backgroundColor: colors.dangerSoft,
+      borderColor: colors.danger,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      justifyContent: "center",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md
+    },
+    dangerButtonText: {
+      color: colors.danger,
+      fontSize: 15,
+      fontWeight: "700",
+      textAlign: "center"
+    },
+    appleButton: {
+      alignItems: "center",
+      backgroundColor: "#000000",
+      borderRadius: radius.md,
+      justifyContent: "center",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md
+    },
+    appleButtonText: {
+      color: "#ffffff",
+      fontSize: 15,
+      fontWeight: "700"
+    },
+    tabRow: {
+      flexDirection: "row",
+      gap: spacing.sm
+    },
+    tab: {
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      flex: 1,
+      paddingVertical: spacing.sm,
+      alignItems: "center"
+    },
+    tabActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary
+    },
+    tabText: {
+      color: colors.muted,
+      fontSize: 14,
+      fontWeight: "600"
+    },
+    tabTextActive: {
+      color: colors.surfaceRaised
+    },
+    metricRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center"
+    },
+    buttonRow: {
+      flexDirection: "row",
+      gap: spacing.sm
     },
     modalScrim: {
       alignItems: "center",

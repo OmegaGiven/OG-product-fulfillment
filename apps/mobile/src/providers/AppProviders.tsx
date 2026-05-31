@@ -4,6 +4,7 @@ import { createContext, useContext, useState, type PropsWithChildren } from "rea
 import { AccessControlProvider } from "./AccessControlProvider";
 import { AppearanceProvider } from "./AppearanceProvider";
 import { ToastProvider } from "./ToastProvider";
+import { CloudSyncProvider } from "./CloudSyncProvider";
 import type { AppServices } from "../services/interfaces";
 import { createLocalServices } from "../services/local/localServices";
 
@@ -18,7 +19,11 @@ export function AppProviders({ children }: PropsWithChildren) {
       <AccessControlProvider>
         <AppearanceProvider>
           <ToastProvider>
-            <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>
+            <ServicesContext.Provider value={services}>
+              <CloudSyncProvider services={services}>
+                {children}
+              </CloudSyncProvider>
+            </ServicesContext.Provider>
           </ToastProvider>
         </AppearanceProvider>
       </AccessControlProvider>

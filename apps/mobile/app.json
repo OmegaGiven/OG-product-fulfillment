@@ -15,7 +15,8 @@
       "expo-router",
       "expo-secure-store",
       "expo-sqlite",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "ios": {
       "bundleIdentifier": "com.omegagiven.productfulfillment",
@@ -46,7 +47,13 @@
       "router": {},
       "eas": {
         "projectId": "2d07c777-557c-450c-8693-aaad08ccb704"
-      }
+      },
+      "firebaseApiKey": "",
+      "firebaseAuthDomain": "",
+      "firebaseProjectId": "",
+      "firebaseStorageBucket": "",
+      "firebaseMessagingSenderId": "",
+      "firebaseAppId": ""
     },
     "owner": "omegagiven"
   }

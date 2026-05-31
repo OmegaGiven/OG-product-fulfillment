@@ -14,5 +14,9 @@
     "mobile:seed:orders": "npm --workspace apps/mobile run seed:orders --",
     "mobile:test": "npm --workspace apps/mobile run test",
     "backend:dev": "npm --workspace apps/backend run start:dev"
+  },
+  "dependencies": {
+    "expo-apple-authentication": "^56.0.4",
+    "firebase": "^12.14.0"
   }
 }
