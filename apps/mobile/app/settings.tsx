@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import {
   type GestureResponderEvent,
@@ -23,13 +23,16 @@ import { useServices } from "../src/providers/AppProviders";
 import { useAccessControl } from "../src/providers/AccessControlProvider";
 import { useAppTheme } from "../src/providers/AppearanceProvider";
 import { useToast } from "../src/providers/ToastProvider";
+import { useRouter as useRouterSettings } from "expo-router";
 import { useCloudSync } from "../src/providers/CloudSyncProvider";
+import { useEntitlements } from "../src/providers/EntitlementProvider";
 import {
   signInWithEmail,
   signUpWithEmail,
   signInWithApple,
   signOut
 } from "../src/services/cloud/cloudAuthService";
+import { getStorageUsage, formatBytes } from "../src/services/cloud/photoBackupService";
 import type { AccentColor, AppTheme, BackgroundColor } from "../src/theme";
 
 const ACCENT_WHEEL: AccentColor[] = [
@@ -185,6 +188,103 @@ function formatAccessLevel(level: PageAccessLevel) {
     case "action":
       return "Write";
   }
+}
+
+function CloudStorageSection() {
+  const router = useRouterSettings();
+  const { theme } = useAppTheme();
+  const { colors, spacing, radius } = theme;
+  const { user } = useCloudSync();
+  const { entitlements } = useEntitlements();
+  const [usage, setUsage] = useState<Awaited<ReturnType<typeof getStorageUsage>> | null>(null);
+
+  useEffect(() => {
+    if (user && entitlements.canUsePhotoBackup) {
+      getStorageUsage(user.uid).then(setUsage).catch(() => {});
+    }
+  }, [user?.uid, entitlements.canUsePhotoBackup]);
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.surfaceRaised,
+        borderColor: colors.border,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        gap: spacing.md,
+        padding: spacing.xl
+      }}
+    >
+      <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700" }}>
+        Subscription &amp; Storage
+      </Text>
+
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ color: colors.muted, fontSize: 14 }}>Current plan</Text>
+        <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>
+          {entitlements.canUseAllIntegrations
+            ? "Pro"
+            : entitlements.canUseSingleIntegration
+              ? "Integrations"
+              : "Free"}
+        </Text>
+      </View>
+
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ color: colors.muted, fontSize: 14 }}>Photo backup</Text>
+        <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>
+          {entitlements.canUsePhotoBackup ? "Active" : "Not subscribed"}
+        </Text>
+      </View>
+
+      {entitlements.canUsePhotoBackup && usage ? (
+        <View style={{ gap: spacing.sm }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={{ color: colors.muted, fontSize: 13 }}>Storage used</Text>
+            <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600" }}>
+              {formatBytes(usage.usedBytes)} / {formatBytes(usage.limitBytes)}
+            </Text>
+          </View>
+          <View
+            style={{
+              backgroundColor: colors.border,
+              borderRadius: radius.pill,
+              height: 6,
+              overflow: "hidden"
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: usage.usedPercent > 85 ? colors.danger : colors.primary,
+                borderRadius: radius.pill,
+                height: 6,
+                width: `${usage.usedPercent}%`
+              }}
+            />
+          </View>
+          {usage.usedPercent > 85 ? (
+            <Text style={{ color: colors.danger, fontSize: 13 }}>
+              Storage almost full. Delete old photos or upgrade your plan.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      <Pressable
+        onPress={() => router.push("/paywall")}
+        style={{
+          backgroundColor: colors.primary,
+          borderRadius: radius.md,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md
+        }}
+      >
+        <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "700", textAlign: "center" }}>
+          {entitlements.canUseAllIntegrations ? "Manage Subscription" : "Upgrade Plan"}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
 
 export default function SettingsScreen() {
@@ -1119,6 +1219,9 @@ export default function SettingsScreen() {
             </View>
           )}
         </View>
+
+        {/* ── Subscription & Storage ─────────────────────────────── */}
+        <CloudStorageSection />
 
         <View style={styles.footerCard}>
           <View style={styles.versionPill}>

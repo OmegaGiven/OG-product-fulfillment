@@ -5,6 +5,7 @@ import { AccessControlProvider } from "./AccessControlProvider";
 import { AppearanceProvider } from "./AppearanceProvider";
 import { ToastProvider } from "./ToastProvider";
 import { CloudSyncProvider } from "./CloudSyncProvider";
+import { EntitlementProvider } from "./EntitlementProvider";
 import type { AppServices } from "../services/interfaces";
 import { createLocalServices } from "../services/local/localServices";
 
@@ -21,7 +22,9 @@ export function AppProviders({ children }: PropsWithChildren) {
           <ToastProvider>
             <ServicesContext.Provider value={services}>
               <CloudSyncProvider services={services}>
-                {children}
+                <EntitlementProvider>
+                  {children}
+                </EntitlementProvider>
               </CloudSyncProvider>
             </ServicesContext.Provider>
           </ToastProvider>

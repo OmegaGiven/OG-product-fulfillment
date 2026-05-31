@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 
 import { AppNav } from "../src/components/AppNav";
 import { Pressable } from "../src/components/InteractivePressable";
@@ -12,6 +13,7 @@ import type {
 } from "../src/services/interfaces";
 import { useAppTheme } from "../src/providers/AppearanceProvider";
 import { useServices } from "../src/providers/AppProviders";
+import { useEntitlements } from "../src/providers/EntitlementProvider";
 import type { AppTheme } from "../src/theme";
 
 type DraftModes = Record<string, "mock" | "live">;
@@ -115,11 +117,13 @@ function isLocalhostRedirectUri(value: string) {
 }
 
 export default function IntegrationsScreen() {
+  const router = useRouter();
   const { theme } = useAppTheme();
   const { colors } = theme;
   const styles = createStyles(theme);
   const { showToast } = useToast();
   const { integrationAuthService, orderSyncService } = useServices();
+  const { entitlements } = useEntitlements();
   const [connections, setConnections] = useState<IntegrationConnection[]>([]);
   const [catalog, setCatalog] = useState<IntegrationDefinition[]>([]);
   const [draftModes, setDraftModes] = useState<DraftModes>({});
@@ -491,12 +495,16 @@ export default function IntegrationsScreen() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={() =>
+                    onPress={() => {
+                      if (!entitlements.canUseSingleIntegration) {
+                        router.push("/paywall");
+                        return;
+                      }
                       setDraftModes((current) => ({
                         ...current,
                         [connection.connectionId]: "live"
-                      }))
-                    }
+                      }));
+                    }}
                     style={[
                       styles.modeButton,
                       activeMode === "live" ? styles.modeButtonActive : null
@@ -684,12 +692,16 @@ export default function IntegrationsScreen() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={() =>
+                    onPress={() => {
+                      if (!entitlements.canUseSingleIntegration) {
+                        router.push("/paywall");
+                        return;
+                      }
                       setDraftModes((current) => ({
                         ...current,
                         [`new:${selectedIntegration.integrationKey}`]: "live"
-                      }))
-                    }
+                      }));
+                    }}
                     style={[
                       styles.modeButton,
                       (draftModes[`new:${selectedIntegration.integrationKey}`] ?? "mock") === "live"
