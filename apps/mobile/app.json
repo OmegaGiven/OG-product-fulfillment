@@ -49,12 +49,12 @@
       "eas": {
         "projectId": "2d07c777-557c-450c-8693-aaad08ccb704"
       },
-      "firebaseApiKey": "",
-      "firebaseAuthDomain": "",
-      "firebaseProjectId": "",
-      "firebaseStorageBucket": "",
-      "firebaseMessagingSenderId": "",
-      "firebaseAppId": ""
+      "firebaseApiKey": "AIzaSyA0zgFmqkfjxbH_-hwJdEPiPq_Y9ccIYEs",
+      "firebaseAuthDomain": "og-product-fulfillment.firebaseapp.com",
+      "firebaseProjectId": "og-product-fulfillment",
+      "firebaseStorageBucket": "og-product-fulfillment.firebasestorage.app",
+      "firebaseMessagingSenderId": "577375928893",
+      "firebaseAppId": "1:577375928893:web:f3081ff24e2376ba45e054"
     },
     "owner": "omegagiven"
   }
