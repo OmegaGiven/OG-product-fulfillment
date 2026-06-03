@@ -84,6 +84,6 @@ Tell me "screenshots ready" with file paths → I'll frame them.
 ## Privacy Policy (required before App Store review)
 
 - [x] Policy generated → `privacy-policy.html` in repo root
-- [ ] Host it: push repo to GitHub → repo Settings → Pages → branch: main, folder: / (root) → Save
-  - URL will be: `https://omegagiven.github.io/product-fullfillment/privacy-policy.html`
-  - Add that URL to App Store Connect → App Information → Privacy Policy URL
+- [x] Host it: pushed to GitHub → Pages enabled → branch: main, folder: /
+  - URL: `https://omegagiven.github.io/OG-fulfillment/privacy-policy.html`
+  - [ ] Add that URL to App Store Connect → App Information → Privacy Policy URL
