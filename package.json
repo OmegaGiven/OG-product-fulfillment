@@ -13,7 +13,10 @@
     "mobile:web": "npm --workspace apps/mobile run web",
     "mobile:seed:orders": "npm --workspace apps/mobile run seed:orders --",
     "mobile:test": "npm --workspace apps/mobile run test",
-    "backend:dev": "npm --workspace apps/backend run start:dev"
+    "backend:dev": "npm --workspace apps/backend run start:dev",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor",
+    "release:major": "node scripts/release.js major"
   },
   "dependencies": {
     "expo-apple-authentication": "^56.0.4",
