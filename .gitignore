@@ -37,3 +37,6 @@ apps/mobile/android/
 # Local runtime data
 tmp/
 temp/
+
+# Playwright MCP artifacts (screenshots, downloads, service account keys)
+.playwright-mcp/
