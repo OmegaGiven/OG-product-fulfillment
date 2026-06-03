@@ -2,8 +2,8 @@ import { Platform } from "react-native";
 
 // RevenueCat API keys — set these after creating products in App Store + Play Console
 // Get them from app.revenuecat.com → Project → API Keys
-const RC_API_KEY_IOS = "appl_REPLACE_WITH_YOUR_IOS_KEY";
-const RC_API_KEY_ANDROID = "goog_REPLACE_WITH_YOUR_ANDROID_KEY";
+const RC_API_KEY_IOS = "appl_HBJIncohBoiBCSCAqDdXvPcoDrC";
+const RC_API_KEY_ANDROID = "goog_hXzrxVAphxgplXbYNBFGXMCpIHa";
 
 export const RC_API_KEY = Platform.OS === "ios" ? RC_API_KEY_IOS : RC_API_KEY_ANDROID;
 
@@ -19,9 +19,9 @@ export const PACKAGE_PHOTO = "$rc_monthly";  // photo backup $3/mo offering
 
 // Product IDs — must match exactly what you create in App Store + Play Console
 export const PRODUCT_IDS = {
-  singleIntegration: "ogfulfillment_single_monthly",
-  proIntegrations: "ogfulfillment_pro_monthly",
-  photoBackup: "ogfulfillment_photo_backup_monthly"
+  singleIntegration: "productfulfillment_single_monthly",
+  proIntegrations: "productfulfillment_pro_monthly",
+  photoBackup: "productfulfillment_photo_backup_monthly"
 } as const;
 
 export type EntitlementKey =
